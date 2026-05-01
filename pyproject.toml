@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swotxai"
+version = "0.1.0"
+description = "Machine learning with SWOT + high-frequency radar data analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "David A. Lee", email = "dal2183@columbia.edu" }
+]
+
+# Core runtime dependencies inferred from your code
+dependencies = [
+  "numpy",
+  "pandas",
+  "xarray",
+  "matplotlib",
+  "scikit-learn",
+  "scipy",
+  "geopandas",
+  "shapely",
+  "paramiko",
+  "cartopy",
+  "cmocean",
+  "xrft",
+  "requests",
+  "python-dotenv",
+  "s3fs",
+  "aiobotocore[boto3]",
+  "h5netcdf",
+  "pyyaml",
+  "tqdm",
+  "pillow",
+  "streamlit>=1.35",
+  "imageio[ffmpeg]"
+]
+
+[project.optional-dependencies]
+dev = [
+  "ipykernel",
+  "jupyterlab",
+  "pytest",
+  "black",
+  "isort",
+  "mypy"
+]
+
+[project.scripts]
+swotxai-gui = "streamlit.web.cli:main_run_clize"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,65 @@
+# SWOTxAI configuration
+# Copy this file and edit paths for your setup, then load it in the GUI sidebar.
+
+# ---------------------------------------------------------------------------
+# Data sources
+# ---------------------------------------------------------------------------
+swot_path: "s3://swot-ai-ssv/SWOT_L3/calval/Expert_reproc_v3_uswc_calval"
+hfr_path: ""          # path to HFR netCDF (u, v velocity components)
+era5_path: ""         # path to ERA5 netCDF (u, v wind at surface)
+goes_dir: null        # path to directory of GOES-18 ABI-L2-SSTF netCDF files, or null to skip
+
+# ---------------------------------------------------------------------------
+# Domain — bounding box [longitude, latitude]
+# ---------------------------------------------------------------------------
+sw_corner: [-127.0, 37.5]   # southwest corner [lon, lat]
+ne_corner:  [-123.0, 42.5]  # northeast corner  [lon, lat]
+
+# ---------------------------------------------------------------------------
+# Mission phase
+# calval: 1-day repeat calibration/validation phase (cycles 474-578)
+# science: 21-day science phase (cycles 1-16)
+# ---------------------------------------------------------------------------
+mission: "calval"
+sph_calval_path: "orbit_data/sph_calval_swath.zip"
+sph_science_path: "orbit_data/sph_science_swath.zip"
+
+# ---------------------------------------------------------------------------
+# Random Forest features
+# Available: mdt, ssha_filtered, ugos_filtered, vgos_filtered,
+#            ugosa_filtered, vgosa_filtered, era5_u, era5_v, SST
+# ---------------------------------------------------------------------------
+features:
+  - mdt
+  - ssha_filtered
+  - ugos_filtered
+  - vgos_filtered
+  - ugosa_filtered
+  - vgosa_filtered
+  - era5_u
+  - era5_v
+  - SST
+
+# ---------------------------------------------------------------------------
+# Model hyperparameters
+# ---------------------------------------------------------------------------
+stencil_k:    3     # spatial context window size (must be odd: 1, 3, 5, 7)
+n_estimators: 50
+max_depth:    15
+random_state: 42
+
+# ---------------------------------------------------------------------------
+# Animation
+# ---------------------------------------------------------------------------
+cycles_start: 474
+cycles_end:   578
+frame_dir:    "frames/output"
+animation_output: "animation.mp4"
+fps:  4
+dpi:  150
+
+# ---------------------------------------------------------------------------
+# Caching — intermediate results are pickled here to avoid recomputation
+# ---------------------------------------------------------------------------
+cache_dir: "cache"
+run_id: ""        # required — short unique name, e.g. "calval_v1" (letters/digits/_/- only)
