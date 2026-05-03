@@ -60,6 +60,7 @@ class SWOTConfig:
     max_depth: int = 15
     random_state: int = 42
     sklearn_n_jobs: int = -1  # -1 = all cores; overridden per-job in batch mode
+    use_gpu: bool = False     # use cuML RandomForest (requires NVIDIA GPU + RAPIDS)
 
     # --- Animation ---
     cycles_start: int = 474

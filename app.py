@@ -123,6 +123,12 @@ with st.sidebar:
             finally:
                 os.unlink(tmp_path)
 
+    _default_cfg_path = Path("config.yaml")
+    if "loaded_config" not in st.session_state and _default_cfg_path.exists():
+        try:
+            st.session_state["loaded_config"] = load_config(_default_cfg_path)
+        except Exception:
+            pass
     base = st.session_state.get("loaded_config", SWOTConfig())
 
     # --- Data sources ---
@@ -174,6 +180,8 @@ with st.sidebar:
     n_estimators = st.slider("n_estimators", 10, 500, base.n_estimators, step=10)
     max_depth    = st.slider("max_depth", 3, 50, base.max_depth)
     stencil_k    = st.select_slider("stencil k (must be odd)", options=[1, 3, 5, 7], value=base.stencil_k)
+    use_gpu      = st.checkbox("Use GPU (cuML / RAPIDS)", value=base.use_gpu,
+                               help="Requires NVIDIA GPU with RAPIDS installed. Falls back with a clear error if unavailable.")
 
     # --- Animation ---
     st.subheader("Animation")
@@ -236,7 +244,7 @@ with st.sidebar:
             sph_calval_path=sph_calval_path, sph_science_path=sph_science_path,
             features=selected_features,
             stencil_k=stencil_k, n_estimators=n_estimators,
-            max_depth=max_depth, random_state=42,
+            max_depth=max_depth, random_state=42, use_gpu=use_gpu,
             cycles_start=int(cycles_start), cycles_end=int(cycles_end),
             frame_dir="", animation_output=anim_output,
             fps=fps, dpi=dpi, cache_dir=cache_dir, run_id=run_id,
