@@ -583,18 +583,27 @@ def concat_flattened(flattened_data: dict, training_percentage: float = 0.8):
         random_state (int), 
         n_jobs (int)
 '''
-def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int):
+def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = False):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
 
-    rf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state, n_jobs=n_jobs)
-    rf.fit(X_train, y_train)
+    if use_gpu:
+        try:
+            from cuml.ensemble import RandomForestRegressor as cuRF
+        except ImportError:
+            raise ImportError("cuML not found. Install RAPIDS or set use_gpu=False.")
+        X_train_f32 = np.asarray(X_train, dtype="float32")
+        y_train_f32 = np.asarray(y_train, dtype="float32")
+        rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)
+        rf.fit(X_train_f32, y_train_f32)
+        y_pred = np.asarray(rf.predict(np.asarray(X_test, dtype="float32")))
+    else:
+        rf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state, n_jobs=n_jobs)
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
 
-    y_pred = rf.predict(X_test)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2 = r2_score(y_test, y_pred)
-
     print(f"RMSE: {rmse:.4f}, R²: {r2:.4f}")
-
     return rf
 
 '''
