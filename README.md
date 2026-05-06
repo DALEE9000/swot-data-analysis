@@ -12,6 +12,14 @@ Requires Python ≥ 3.10.
 pip install -e ".[dev]"
 ```
 
+## Installation From the Columbia LEAP Jupyter Hub
+
+```bash
+cd swot-data-analysis
+pip install -e .
+pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12
+```
+
 ## Running the app
 
 ```bash
