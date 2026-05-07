@@ -180,8 +180,16 @@ with st.sidebar:
     n_estimators = st.slider("n_estimators", 10, 500, base.n_estimators, step=10)
     max_depth    = st.slider("max_depth", 3, 50, base.max_depth)
     stencil_k    = st.select_slider("stencil k (must be odd)", options=[1, 3, 5, 7], value=base.stencil_k)
-    use_gpu      = st.checkbox("Use GPU (cuML / RAPIDS)", value=base.use_gpu,
-                               help="Requires NVIDIA GPU with RAPIDS installed. Falls back with a clear error if unavailable.")
+    try:
+        import cuml  # noqa: F401
+        _cuml_available = True
+    except ImportError:
+        _cuml_available = False
+    use_gpu = st.checkbox(
+        "Use GPU (cuML / RAPIDS)",
+        value=_cuml_available,
+        help="Auto-detected based on whether cuML is installed.",
+    )
 
     # --- Animation ---
     st.subheader("Animation")
