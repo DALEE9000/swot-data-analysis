@@ -56,11 +56,31 @@ streamlit run app.py
 
 ## Running the app from a Vast.ai instance
 
+Run with `nohup` so training survives SSH disconnects:
+
 ```bash
-streamlit run app.py --server.port 8501
+nohup streamlit run app.py --server.port 8501 > nohup.out 2>&1 &
 ```
 
-Then open `localhost:8501` in your browser.
+Then open `localhost:8501` in your browser. To monitor logs:
+
+```bash
+tail -f nohup.out
+```
+
+To check if it's still running:
+
+```bash
+ps aux | grep streamlit | grep -v grep
+```
+
+To stop it:
+
+```bash
+kill <PID>
+```
+
+**Important:** Do not destroy your instance between sessions — just stop it. The ERA5/GOES cache in `cache/` will be preserved, saving ~30 minutes of reloading on next startup.
 
 ---
 
