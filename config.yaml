@@ -6,8 +6,9 @@
 # ---------------------------------------------------------------------------
 swot_path: "s3://swot-ai-ssv/SWOT_L3/calval/Expert_reproc_v3_uswc_calval"
 hfr_path: ""          # path to HFR netCDF (u, v velocity components)
-era5_path: "s3://swot-ai-ssv/ERA5/ERA5_wind_uswc/era5wind_2023.nc"         # path to ERA5 netCDF (u, v wind at surface)
-goes_dir: "s3://swot-ai-ssv/noaa-goes18/geographic_subsets/uswc/goes_sst_calval_uswc.nc"        # path to directory of GOES-18 ABI-L2-SSTF netCDF files, or null to skip
+era5_path: "s3://swot-ai-ssv/ERA5/ERA5_wind_uswc/era5wind_2023.nc"
+era5_pkl_path: "s3://swot-ai-ssv/ERA5/ERA5_wind_uswc/era5wind_2023.pkl"  # auto-saved on first run; loaded directly on all subsequent runs
+goes_dir: "s3://swot-ai-ssv/experiments/uswc/goes/goes_sst_calval_uswc.pkl"
 
 # ---------------------------------------------------------------------------
 # Domain — bounding box [longitude, latitude]

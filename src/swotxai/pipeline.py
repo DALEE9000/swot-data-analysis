@@ -277,19 +277,22 @@ def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 
     goes_path_str = config.goes_dir
 
-    # S3 path (single pre-processed file)
+    # S3 path
     if goes_path_str.startswith("s3://"):
         cb("load_goes", 0.0, f"Loading GOES SST from S3: {goes_path_str}...")
-        import s3fs
-        fs = s3fs.S3FileSystem(anon=True)
-        with fs.open(goes_path_str) as f:
-            ds_g = xr.open_dataset(f, engine="h5netcdf").load()
-        sst_var = next((v for v in ds_g.data_vars if v.upper() == "SST"), None)
-        if sst_var is None:
-            cb("load_goes", 1.0, f"No SST variable in S3 file. Available: {list(ds_g.data_vars)}")
-            return None
-        if sst_var != "SST":
-            ds_g = ds_g.rename({sst_var: "SST"})
+        if goes_path_str.endswith(".pkl"):
+            ds_g = _load_s3_pkl(goes_path_str)
+        else:
+            import s3fs
+            fs = s3fs.S3FileSystem(anon=True)
+            with fs.open(goes_path_str) as f:
+                ds_g = xr.open_dataset(f, engine="h5netcdf").load()
+            sst_var = next((v for v in ds_g.data_vars if v.upper() == "SST"), None)
+            if sst_var is None:
+                cb("load_goes", 1.0, f"No SST variable in S3 file. Available: {list(ds_g.data_vars)}")
+                return None
+            if sst_var != "SST":
+                ds_g = ds_g.rename({sst_var: "SST"})
         _save(ds_g, cache_path)
         cb("load_goes", 1.0, f"GOES SST loaded from S3 ({len(ds_g.coords)} coords, vars={list(ds_g.data_vars)}).")
         return ds_g
