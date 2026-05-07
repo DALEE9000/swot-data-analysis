@@ -36,18 +36,10 @@ cd swot-data-analysis
 pip install -e .
 ```
 
-The RAPIDS template ships with a nightly conda build of cuML that is incomplete. Remove the conda RAPIDS packages and replace them with the stable pip versions:
+Install GPU dependencies:
 
 ```bash
-conda remove --force cuml rmm cudf libcuml libcudf librmm pylibcudf cudf-polars dask-cudf cudf_kafka libcudf_kafka libcumlprims
-pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12 rmm-cu12 cudf-cu12
-```
-
-Fix the duplicate CuPy conflict that comes with the template:
-
-```bash
-pip uninstall -y cupy cupy-cuda12x
-conda install -c conda-forge cupy
+pip install -r requirements-gpu.txt
 ```
 
 Verify cuML is working:
