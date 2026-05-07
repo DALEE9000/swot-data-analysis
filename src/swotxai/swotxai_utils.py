@@ -38,8 +38,8 @@ import swot.download_swaths as download_swaths
 import warnings
 warnings.filterwarnings('ignore')
 
-# Cache for cuML → sklearn conversions so FIL fallback doesn't re-convert every cycle
-_cuml_sklearn_cache: dict = {}
+# Cached FIL kwargs that work on this machine; None = not yet probed
+_cuml_predict_kw: dict | None = None
 
 # .env paths
 # Path to .env is always relative to this script
@@ -678,20 +678,31 @@ def plotter(
         _is_cuml = False
 
     if _is_cuml:
+        global _cuml_predict_kw
         X_valid = np.asarray(df_valid, dtype="float32")
-        try:
-            ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid))
-            ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid))
-        except RuntimeError:
-            # FIL GPU inference failed (e.g. "invalid configuration argument");
-            # convert once to sklearn and cache for remaining cycles.
-            uid, vid = id(rf_u), id(rf_v)
-            if uid not in _cuml_sklearn_cache:
-                _cuml_sklearn_cache[uid] = rf_u.convert_to_sklearn()
-            if vid not in _cuml_sklearn_cache:
-                _cuml_sklearn_cache[vid] = rf_v.convert_to_sklearn()
-            ssv_pred_u[valid_mask] = _cuml_sklearn_cache[uid].predict(X_valid)
-            ssv_pred_v[valid_mask] = _cuml_sklearn_cache[vid].predict(X_valid)
+        # Probe FIL layouts once; cache the first one that works.
+        # sparse8 / sparse use a different CUDA kernel that avoids the
+        # block-size limit hit by large forests with the default dense layout.
+        _attempts = (
+            [_cuml_predict_kw] if _cuml_predict_kw is not None
+            else [{}, {"layout": "sparse8"}, {"layout": "sparse"}, {"default_chunk_size": 1}]
+        )
+        pred_u = pred_v = None
+        for _kw in _attempts:
+            try:
+                pred_u = np.asarray(rf_u.predict(X_valid, **_kw))
+                pred_v = np.asarray(rf_v.predict(X_valid, **_kw))
+                _cuml_predict_kw = _kw
+                break
+            except (RuntimeError, TypeError):
+                continue
+        if pred_u is None:
+            raise RuntimeError(
+                "All cuML FIL configurations failed (invalid configuration argument). "
+                "Retrain with sklearn or a compatible cuML version."
+            )
+        ssv_pred_u[valid_mask] = pred_u
+        ssv_pred_v[valid_mask] = pred_v
     else:
         ssv_pred_u[valid_mask] = rf_u.predict(df_valid)
         ssv_pred_v[valid_mask] = rf_v.predict(df_valid)
