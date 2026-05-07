@@ -589,8 +589,15 @@ def concat_flattened(flattened_data: dict, training_percentage: float = 0.8):
 def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = True):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
 
+    _use_cuml = False
     if use_gpu:
-        from cuml.ensemble import RandomForestRegressor as cuRF  # hard fail if missing
+        try:
+            from cuml.ensemble import RandomForestRegressor as cuRF
+            _use_cuml = True
+        except ImportError:
+            print("cuML not available — falling back to sklearn.")
+
+    if _use_cuml:
         X_train_f32 = np.asarray(X_train, dtype="float32")
         y_train_f32 = np.asarray(y_train, dtype="float32")
         rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)
