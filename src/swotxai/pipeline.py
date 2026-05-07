@@ -536,18 +536,11 @@ def step_train(
     X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=0.8)
 
     backend = "cuML (GPU)" if config.use_gpu else f"sklearn (CPU, n_jobs={config.sklearn_n_jobs})"
-    cb("train", 0.3, f"Training RF for u+v-velocity in parallel (n_estimators={config.n_estimators}, backend={backend})...")
+    cb("train", 0.3, f"Training RF for u-velocity (n_estimators={config.n_estimators}, backend={backend})...")
+    rf_u = random_forest(X_u, y_u, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu)
 
-    if config.use_gpu:
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_u = executor.submit(random_forest, X_u, y_u, config.n_estimators, config.max_depth, config.random_state, config.sklearn_n_jobs, True, 0)
-            future_v = executor.submit(random_forest, X_v, y_v, config.n_estimators, config.max_depth, config.random_state, config.sklearn_n_jobs, True, 1)
-            rf_u = future_u.result()
-            rf_v = future_v.result()
-    else:
-        rf_u = random_forest(X_u, y_u, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=False)
-        rf_v = random_forest(X_v, y_v, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=False)
+    cb("train", 0.7, f"Training RF for v-velocity (backend={backend})...")
+    rf_v = random_forest(X_v, y_v, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu)
 
     _save_model(rf_u, cache_path_u)
     _save_model(rf_v, cache_path_v)
