@@ -668,8 +668,19 @@ def plotter(
     ssv_pred_u = np.full(len(df), np.nan)  # initialize with NaNs
     ssv_pred_v = np.full(len(df), np.nan)
 
-    ssv_pred_u[valid_mask] = rf_u.predict(df_valid)
-    ssv_pred_v[valid_mask] = rf_v.predict(df_valid)
+    try:
+        from cuml.ensemble import RandomForestRegressor as cuRF
+        _is_cuml = isinstance(rf_u, cuRF)
+    except ImportError:
+        _is_cuml = False
+
+    if _is_cuml:
+        X_valid = np.asarray(df_valid, dtype="float32")
+        ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid))
+        ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid))
+    else:
+        ssv_pred_u[valid_mask] = rf_u.predict(df_valid)
+        ssv_pred_v[valid_mask] = rf_v.predict(df_valid)
 
     # Figure out shape of everything here
     pred_full_u = reshaping(ssv_pred_u, swot_regridded_cycle.dims['lat'], swot_regridded_cycle.dims['lon'])
