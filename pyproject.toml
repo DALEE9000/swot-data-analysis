@@ -32,6 +32,7 @@ dependencies = [
   "aiobotocore[boto3]",
   "h5py",
   "h5netcdf",
+  "netCDF4",
   "pyyaml",
   "tqdm",
   "pillow",
@@ -40,9 +41,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gpu = [
-  "cuml-cu12"
-]
 dev = [
   "ipykernel",
   "jupyterlab",

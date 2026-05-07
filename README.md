@@ -17,12 +17,11 @@ pip install -e ".[dev]"
 ```bash
 cd swot-data-analysis
 pip install -e .
-pip install -r requirements-gpu.txt
 ```
 
 ## Installation From Vast.ai
 
-Use the **NVIDIA RAPIDS** template when renting the instance. Connect with port forwarding so the Streamlit UI is accessible locally:
+Use the **NVIDIA RAPIDS** template when renting the instance — cuML is pre-installed in the image, no extra GPU dependencies needed. Connect with port forwarding so the Streamlit UI is accessible locally:
 
 ```bash
 ssh -p <PORT> -i ~/.ssh/id_ed25519 -L 8501:localhost:8501 root@<IP>
@@ -34,12 +33,6 @@ Then on the instance:
 git clone https://github.com/DALEE9000/swot-data-analysis.git
 cd swot-data-analysis
 pip install -e .
-```
-
-Install GPU dependencies:
-
-```bash
-pip install -r requirements-gpu.txt
 ```
 
 Verify cuML is working:
@@ -80,7 +73,7 @@ To stop it:
 kill <PID>
 ```
 
-**Important:** Do not destroy your instance between sessions — just stop it. The ERA5/GOES cache in `cache/` will be preserved, saving ~30 minutes of reloading on next startup.
+**Important:** Do not destroy your instance between sessions — just stop it. ERA5 and GOES are loaded from S3 pkls so they are fast on any instance, but the SWOT/HFR step cache in `cache/` will be lost if you destroy the instance.
 
 ---
 
@@ -145,8 +138,8 @@ The pipeline is a 12-step sequential chain. Each step pickles its output; re-run
 |---|------|-------------|
 | 1 | `load_swot` | Find passes over domain and load SWOT L3 NetCDF cycles |
 | 2 | `regrid` | Interpolate swath data onto a regular lat/lon grid |
-| 3 | `load_era5` | Load ERA5 surface wind (u, v) from local or S3 NetCDF |
-| 4 | `load_goes` | Load GOES SST from a single `.nc` file or S3 path |
+| 3 | `load_era5` | Load ERA5 surface wind (u, v) from S3 pkl (fast) or NetCDF fallback |
+| 4 | `load_goes` | Load GOES SST from S3 pkl |
 | 5 | `interp_sources` | Interpolate ERA5 winds and GOES SST onto the SWOT grid |
 | 6 | `load_hfr` | Load HFR ground-truth velocity |
 | 7 | `interp_hfr` | Interpolate HFR onto SWOT grid with 24-hour rolling mean |
@@ -166,8 +159,8 @@ Key fields in `config.yaml`:
 |-------|-------------|
 | `swot_path` | S3 or local path to SWOT L3 NetCDF files |
 | `hfr_path` | Path to HFR NetCDF with `u`, `v` velocity components |
-| `era5_path` | *(optional)* Path to ERA5 NetCDF with surface winds |
-| `goes_dir` | *(optional)* Path to a GOES SST `.nc` file or S3 URI |
+| `era5_pkl_path` | *(optional)* S3 or local path to processed ERA5 pkl; auto-saved on first run from `era5_path` |
+| `goes_pkl_path` | *(optional)* S3 or local path to processed GOES SST pkl |
 | `sw_corner` / `ne_corner` | Bounding box `[lon, lat]` |
 | `mission` | `"calval"` (1-day repeat, cycles 474–578) or `"science"` (21-day, cycles 1–16) |
 | `features` | RF input features — any of `mdt, ssha_filtered, ugos_filtered, vgos_filtered, ugosa_filtered, vgosa_filtered, era5_u, era5_v, SST` |
