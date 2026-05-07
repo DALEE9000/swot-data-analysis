@@ -38,6 +38,9 @@ import swot.download_swaths as download_swaths
 import warnings
 warnings.filterwarnings('ignore')
 
+# Cache for cuML → sklearn conversions so FIL fallback doesn't re-convert every cycle
+_cuml_sklearn_cache: dict = {}
+
 # .env paths
 # Path to .env is always relative to this script
 env_path = Path(__file__).parent.parent
@@ -676,8 +679,19 @@ def plotter(
 
     if _is_cuml:
         X_valid = np.asarray(df_valid, dtype="float32")
-        ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid))
-        ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid))
+        try:
+            ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid))
+            ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid))
+        except RuntimeError:
+            # FIL GPU inference failed (e.g. "invalid configuration argument");
+            # convert once to sklearn and cache for remaining cycles.
+            uid, vid = id(rf_u), id(rf_v)
+            if uid not in _cuml_sklearn_cache:
+                _cuml_sklearn_cache[uid] = rf_u.convert_to_sklearn()
+            if vid not in _cuml_sklearn_cache:
+                _cuml_sklearn_cache[vid] = rf_v.convert_to_sklearn()
+            ssv_pred_u[valid_mask] = _cuml_sklearn_cache[uid].predict(X_valid)
+            ssv_pred_v[valid_mask] = _cuml_sklearn_cache[vid].predict(X_valid)
     else:
         ssv_pred_u[valid_mask] = rf_u.predict(df_valid)
         ssv_pred_v[valid_mask] = rf_v.predict(df_valid)
