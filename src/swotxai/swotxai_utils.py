@@ -785,8 +785,8 @@ def build_frame_dicts(
                 swot_dict[str(frame)][idx] = swot_ds
                 hfr_dict[str(frame)][idx]  = hfr_ds
                 print(f"Frame {frame}, pass {j} done.")
-            except (KeyError, ValueError, FileNotFoundError, IndexError, TypeError, AttributeError) as e:
-                print(f"Skipping cycle {frame}, pass {j}: {e}")
+            except Exception as e:
+                print(f"Skipping cycle {frame}, pass {j}: {type(e).__name__}: {e}", flush=True)
 
     return swot_dict, hfr_dict
 
