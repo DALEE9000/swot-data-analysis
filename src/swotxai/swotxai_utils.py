@@ -586,14 +586,11 @@ def concat_flattened(flattened_data: dict, training_percentage: float = 0.8):
         random_state (int), 
         n_jobs (int)
 '''
-def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = False):
+def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = True):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
 
     if use_gpu:
-        try:
-            from cuml.ensemble import RandomForestRegressor as cuRF
-        except ImportError:
-            raise ImportError("cuML not found. Install RAPIDS or set use_gpu=False.")
+        from cuml.ensemble import RandomForestRegressor as cuRF  # hard fail if missing
         X_train_f32 = np.asarray(X_train, dtype="float32")
         y_train_f32 = np.asarray(y_train, dtype="float32")
         rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)

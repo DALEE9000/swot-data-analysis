@@ -40,6 +40,7 @@ class SWOTConfig:
     swot_path: str = "s3://swot-ai-ssv/SWOT_L3/calval/Expert_reproc_v3_uswc_calval"
     hfr_path: str = ""
     era5_path: str = ""
+    era5_pkl_path: str = ""     # S3 (or local) path to a pre-processed ERA5 pkl; auto-saved on first load
     goes_dir: str | None = None  # optional; GOES panels skipped if None
 
     # --- Domain ---
@@ -60,7 +61,7 @@ class SWOTConfig:
     max_depth: int = 15
     random_state: int = 42
     sklearn_n_jobs: int = -1  # -1 = all cores; overridden per-job in batch mode
-    use_gpu: bool = False     # use cuML RandomForest (requires NVIDIA GPU + RAPIDS)
+    use_gpu: bool = True      # use cuML RandomForest (requires NVIDIA GPU + RAPIDS)
 
     # --- Animation ---
     cycles_start: int = 474
@@ -112,12 +113,25 @@ class SWOTConfig:
             parts.append(self.run_id)
         return "_".join(parts)
 
+    def _flat_stem(self) -> str:
+        """Flattened-specific stem keyed by stencil_k, not run_id (stencil_k is the only thing that changes it)."""
+        parts = ["flattened", self.mission]
+        if self.region:
+            parts.append(self.region)
+        parts.append(f"{self.cycles_start}_{self.cycles_end}")
+        parts.append(f"k{self.stencil_k}")
+        return "_".join(parts)
+
     def cache_path(self, name: str) -> Path:
+        if name == "flattened":
+            stem = self._flat_stem()
+            if self.region:
+                return Path("SWOTxAI/code/experiments") / self.region / "flattened" / f"{stem}.pkl"
+            return Path(self.cache_dir) / f"{stem}.pkl"
+
         stem = self._file_stem(name)
         if self.region:
             base = Path("SWOTxAI/code/experiments") / self.region
-            if name == "flattened":
-                return base / "flattened" / f"{stem}.pkl"
             if name == "inference":
                 return base / self.mission / f"{stem}.pkl"
             if name in ("rf_u", "rf_v"):

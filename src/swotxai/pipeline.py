@@ -76,6 +76,23 @@ def _load_s3_pkl(s3_path: str):
         return pickle.load(f)
 
 
+def _s3_exists(s3_path: str) -> bool:
+    try:
+        import s3fs
+        fs = s3fs.S3FileSystem(anon=True)
+        return fs.exists(s3_path)
+    except Exception:
+        return False
+
+
+def _save_s3_pkl(obj, s3_path: str) -> None:
+    """Save a pkl to S3. Requires AWS credentials (anon=False)."""
+    import s3fs
+    fs = s3fs.S3FileSystem(anon=False)
+    with fs.open(s3_path, "wb") as f:
+        pickle.dump(obj, f)
+
+
 def step_load_preset_swot(config: SWOTConfig, cb: ProgressCb) -> tuple[dict, dict]:
     """Stream pre-processed SWOT regridded pkl from S3 into memory (no local save)."""
     cb("load_swot", 0.0, "Streaming preset SWOT pkl from S3...")
@@ -167,10 +184,25 @@ def step_regrid(config: SWOTConfig, cycle_data: dict, cb: ProgressCb, use_cache:
 
 
 def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Dataset | None:
-    if not config.era5_path:
+    if not config.era5_path and not config.era5_pkl_path:
         cb("load_era5", 1.0, "ERA5 path not set — skipping.")
         return None
 
+    # 1. S3 pkl fast path — check era5_pkl_path first
+    pkl_path = config.era5_pkl_path
+    if use_cache and pkl_path:
+        if pkl_path.startswith("s3://") and _s3_exists(pkl_path):
+            cb("load_era5", 0.0, f"Loading ERA5 from S3 pkl: {pkl_path}...")
+            era5 = _load_s3_pkl(pkl_path)
+            cb("load_era5", 1.0, "ERA5 loaded from S3 pkl.")
+            return era5
+        elif not pkl_path.startswith("s3://") and Path(pkl_path).exists():
+            cb("load_era5", 0.0, f"Loading ERA5 from local pkl: {pkl_path}...")
+            era5 = _load(Path(pkl_path))
+            cb("load_era5", 1.0, "ERA5 loaded from local pkl.")
+            return era5
+
+    # 2. Local run-scoped cache
     cache_path = config.cache_path("era5")
     if _cached(cache_path, use_cache):
         result = _load(cache_path)
@@ -181,7 +213,11 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
         cb("load_era5", 0.0, "ERA5 cache missing era5_u — reloading from source...")
         cache_path.unlink(missing_ok=True)
 
-    cb("load_era5", 0.0, f"Loading ERA5 from {config.era5_path}...")
+    # 3. Load from source (slow — NetCDF from S3 or disk)
+    if not config.era5_path:
+        raise ValueError("era5_pkl_path not found and era5_path is not set.")
+
+    cb("load_era5", 0.0, f"Loading ERA5 from source: {config.era5_path}...")
     if config.era5_path.startswith("s3://"):
         import s3fs
         fs = s3fs.S3FileSystem(anon=True)
@@ -194,7 +230,6 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 
     if "isobaricInhPa" in era5.dims:
         era5 = era5.isel(isobaricInhPa=0)
-    # Accept common ERA5 wind variable names
     u_name = next((v for v in era5.data_vars if v in ("u", "u10", "ugrd10m")), None)
     v_name = next((v for v in era5.data_vars if v in ("v", "v10", "vgrd10m")), None)
     if u_name and v_name:
@@ -209,8 +244,22 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
         era5[lon_coord] = (era5[lon_coord] + 180) % 360 - 180
         era5 = era5.sortby(lon_coord)
 
+    # Save to local run-scoped cache
     _save(era5, cache_path)
-    cb("load_era5", 1.0, "ERA5 loaded.")
+
+    # Save to era5_pkl_path (S3 or local) for cross-machine reuse
+    if pkl_path:
+        cb("load_era5", 0.9, f"Saving ERA5 pkl to {pkl_path}...")
+        try:
+            if pkl_path.startswith("s3://"):
+                _save_s3_pkl(era5, pkl_path)
+            else:
+                _save(era5, Path(pkl_path))
+            cb("load_era5", 1.0, f"ERA5 loaded and cached to {pkl_path}.")
+        except Exception as e:
+            cb("load_era5", 1.0, f"ERA5 loaded (pkl upload failed: {e}).")
+    else:
+        cb("load_era5", 1.0, "ERA5 loaded.")
     return era5
 
 
@@ -566,8 +615,20 @@ def step_evaluate(
     _, X_test_u, _, y_test_u = train_test_split(X_u, y_u, test_size=0.2, random_state=config.random_state)
     _, X_test_v, _, y_test_v = train_test_split(X_v, y_v, test_size=0.2, random_state=config.random_state)
 
-    pred_u = rf_u.predict(X_test_u)
-    pred_v = rf_v.predict(X_test_v)
+    try:
+        from cuml.ensemble import RandomForestRegressor as cuRF
+        _is_cuml = isinstance(rf_u, cuRF)
+    except ImportError:
+        _is_cuml = False
+
+    if _is_cuml:
+        pred_u = np.asarray(rf_u.predict(np.asarray(X_test_u, dtype="float32")))
+        pred_v = np.asarray(rf_v.predict(np.asarray(X_test_v, dtype="float32")))
+        y_test_u = np.asarray(y_test_u, dtype="float32")
+        y_test_v = np.asarray(y_test_v, dtype="float32")
+    else:
+        pred_u = rf_u.predict(X_test_u)
+        pred_v = rf_v.predict(X_test_v)
 
     meta_path = config.cache_path("rf_meta")
     if meta_path.exists():
