@@ -676,8 +676,8 @@ def plotter(
 
     if _is_cuml:
         X_valid = np.asarray(df_valid, dtype="float32")
-        ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid, predict_model="CPU"))
-        ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid, predict_model="CPU"))
+        ssv_pred_u[valid_mask] = np.asarray(rf_u.predict(X_valid))
+        ssv_pred_v[valid_mask] = np.asarray(rf_v.predict(X_valid))
     else:
         ssv_pred_u[valid_mask] = rf_u.predict(df_valid)
         ssv_pred_v[valid_mask] = rf_v.predict(df_valid)
