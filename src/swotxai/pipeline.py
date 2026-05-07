@@ -264,7 +264,7 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 
 
 def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Dataset | None:
-    if not config.goes_dir:
+    if not config.goes_pkl_path:
         cb("load_goes", 1.0, "GOES dir not set — skipping.")
         return None
 
@@ -275,7 +275,7 @@ def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
         cb("load_goes", 1.0, "Loaded from cache.")
         return result
 
-    goes_path_str = config.goes_dir
+    goes_path_str = config.goes_pkl_path
 
     # S3 path
     if goes_path_str.startswith("s3://"):
@@ -316,8 +316,8 @@ def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 
     # Directory of raw GOES-16/17/18 scan files
     from swotxai.animation_utils import build_goes_index
-    cb("load_goes", 0.0, f"Scanning GOES files in {config.goes_dir}...")
-    goes_index, _ = build_goes_index(config.goes_dir)
+    cb("load_goes", 0.0, f"Scanning GOES files in {config.goes_pkl_path}...")
+    goes_index, _ = build_goes_index(config.goes_pkl_path)
     if not goes_index:
         cb("load_goes", 1.0, "No GOES .nc files found — skipping.")
         return None

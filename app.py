@@ -145,8 +145,8 @@ with st.sidebar:
         hfr_path     = st.text_input("HFR path (.nc) *", value=base.hfr_path)
         swot_pkl_path = None
         hfr_pkl_path  = None
-    era5_path = st.text_input("ERA5 path (.nc) — optional", value=base.era5_path)
-    goes_dir  = st.text_input("GOES SST — optional (path to a .nc file with SST variable, or directory of GOES-16/17/18 .nc scan files)", value=base.goes_dir or "")
+    era5_pkl_path = st.text_input("ERA5 pkl path (S3 or local) — optional", value=base.era5_pkl_path)
+    goes_pkl_path = st.text_input("GOES SST pkl path (S3 or local) — optional", value=base.goes_pkl_path or "")
 
     # --- Domain (hidden when preset) ---
     if using_preset:
@@ -245,8 +245,8 @@ with st.sidebar:
 
     try:
         current_config = SWOTConfig(
-            swot_path=swot_path, hfr_path=hfr_path, era5_path=era5_path,
-            goes_dir=goes_dir or None,
+            swot_path=swot_path, hfr_path=hfr_path, era5_pkl_path=era5_pkl_path,
+            goes_pkl_path=goes_pkl_path or None,
             sw_corner=[sw_lon, sw_lat], ne_corner=[ne_lon, ne_lat],
             mission=mission,
             sph_calval_path=sph_calval_path, sph_science_path=sph_science_path,
@@ -635,8 +635,8 @@ with tab_batch:
             max_workers      = batch_max_workers,
             swot_path        = swot_path,
             hfr_path         = hfr_path,
-            era5_path        = era5_path,
-            goes_dir         = goes_dir or None,
+            era5_pkl_path    = era5_pkl_path,
+            goes_pkl_path    = goes_pkl_path or None,
             sw_corner        = [sw_lon, sw_lat],
             ne_corner        = [ne_lon, ne_lat],
             mission          = mission,
