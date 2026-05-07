@@ -229,7 +229,7 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
     cb("load_era5", 0.5, f"ERA5 raw vars: {list(era5.data_vars)}  dims: {dict(era5.dims)}")
 
     if "isobaricInhPa" in era5.dims:
-        era5 = era5.isel(isobaricInhPa=0)
+        era5 = era5.sel(isobaricInhPa=1000)
     u_name = next((v for v in era5.data_vars if v in ("u", "u10", "ugrd10m")), None)
     v_name = next((v for v in era5.data_vars if v in ("v", "v10", "vgrd10m")), None)
     if u_name and v_name:
