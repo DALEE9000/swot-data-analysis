@@ -377,7 +377,7 @@ with tab_pipeline:
     # Elapsed timer
     t_start = st.session_state.pipeline_start_time
     t_end   = st.session_state.pipeline_end_time
-    if t_start is not None:
+    if t_start is not None and (st.session_state.running or t_end is not None):
         elapsed = (time.time() if st.session_state.running else t_end) - t_start
         m, s = divmod(int(elapsed), 60)
         h, m = divmod(m, 60)
