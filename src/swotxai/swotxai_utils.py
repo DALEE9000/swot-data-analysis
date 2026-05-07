@@ -588,14 +588,14 @@ def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: i
 
     if use_gpu:
         try:
-            from cuml.ensemble import RandomForestRegressor as cuRF
+            from xgboost import XGBRFRegressor
         except ImportError:
-            raise ImportError("cuML not found. Install RAPIDS or set use_gpu=False.")
+            raise ImportError("xgboost not found. Install xgboost or set use_gpu=False.")
         X_train_f32 = np.asarray(X_train, dtype="float32")
         y_train_f32 = np.asarray(y_train, dtype="float32")
-        rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)
+        rf = XGBRFRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state, device="cuda")
         rf.fit(X_train_f32, y_train_f32)
-        y_pred = np.asarray(rf.predict(np.asarray(X_test, dtype="float32")))
+        y_pred = rf.predict(np.asarray(X_test, dtype="float32"))
     else:
         rf = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state, n_jobs=n_jobs)
         rf.fit(X_train, y_train)

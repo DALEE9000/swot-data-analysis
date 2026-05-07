@@ -17,7 +17,43 @@ pip install -e ".[dev]"
 ```bash
 cd swot-data-analysis
 pip install -e .
-pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12
+pip install -r requirements-gpu.txt
+```
+
+## Installation From Vast.ai
+
+Use the **NVIDIA RAPIDS** template when renting the instance. Connect with port forwarding so the Streamlit UI is accessible locally:
+
+```bash
+ssh -p <PORT> -i ~/.ssh/id_ed25519 -L 8501:localhost:8501 root@<IP>
+```
+
+Then on the instance:
+
+```bash
+git clone https://github.com/DALEE9000/swot-data-analysis.git
+cd swot-data-analysis
+pip install -e .
+```
+
+The RAPIDS template ships with a nightly conda build of cuML that is incomplete. Remove the conda RAPIDS packages and replace them with the stable pip versions:
+
+```bash
+conda remove --force cuml rmm cudf libcuml libcudf librmm pylibcudf cudf-polars dask-cudf cudf_kafka libcudf_kafka libcumlprims
+pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12 rmm-cu12 cudf-cu12
+```
+
+Fix the duplicate CuPy conflict that comes with the template:
+
+```bash
+pip uninstall -y cupy cupy-cuda12x
+conda install -c conda-forge cupy
+```
+
+Verify cuML is working:
+
+```bash
+python -c "from cuml.ensemble import RandomForestRegressor; print('OK')"
 ```
 
 ## Running the app
@@ -25,6 +61,14 @@ pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12
 ```bash
 streamlit run app.py
 ```
+
+## Running the app from a Vast.ai instance
+
+```bash
+streamlit run app.py --server.port 8501
+```
+
+Then open `localhost:8501` in your browser.
 
 ---
 

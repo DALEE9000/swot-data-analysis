@@ -30,6 +30,7 @@ dependencies = [
   "python-dotenv",
   "s3fs",
   "aiobotocore[boto3]",
+  "h5py",
   "h5netcdf",
   "pyyaml",
   "tqdm",
@@ -39,6 +40,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gpu = [
+  "cuml-cu12"
+]
 dev = [
   "ipykernel",
   "jupyterlab",
