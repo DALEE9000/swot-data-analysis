@@ -55,7 +55,7 @@ cycles_start: 474
 cycles_end:   578
 frame_dir:    "frames/output"
 animation_output: "animation.mp4"
-fps:  4
+fps:  8
 dpi:  150
 
 # ---------------------------------------------------------------------------

@@ -633,7 +633,7 @@ def step_evaluate(
     from swotxai.swotxai_utils import concat_flattened
 
     cb("evaluate", 0.0, "Computing evaluation metrics...")
-    X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=1.0)
+    X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=0.8)
 
     _, X_test_u, _, y_test_u = train_test_split(X_u, y_u, test_size=0.2, random_state=config.random_state)
     _, X_test_v, _, y_test_v = train_test_split(X_v, y_v, test_size=0.2, random_state=config.random_state)
