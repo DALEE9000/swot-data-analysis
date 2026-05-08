@@ -559,10 +559,12 @@ def flattening(
 def concat_flattened(flattened_data: dict, training_percentage: float = 0.8, held_out: bool = False):
     X_u_list, X_v_list, y_u_list, y_v_list = [], [], [], []
 
-    for t, entries in flattened_data.items():
-        n = max(1, int(len(entries) * training_percentage))
-        subset = entries[n:] if held_out else entries[:n]
-        for entry in subset:
+    keys = list(flattened_data.keys())
+    n = max(1, int(len(keys) * training_percentage))
+    selected_keys = keys[n:] if held_out else keys[:n]
+
+    for t in selected_keys:
+        for entry in flattened_data[t]:
             X_u_list.append(entry["X_u"])
             X_v_list.append(entry["X_v"])
             y_u_list.append(entry["y_u"])
