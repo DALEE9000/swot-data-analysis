@@ -215,7 +215,8 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 
     # 3. Load from source (slow — NetCDF from S3 or disk)
     if not config.era5_path:
-        raise ValueError("era5_pkl_path not found and era5_path is not set.")
+        cb("load_era5", 1.0, "ERA5 pkl not found and era5_path not set — skipping.")
+        return None
 
     cb("load_era5", 0.0, f"Loading ERA5 from source: {config.era5_path}...")
     if config.era5_path.startswith("s3://"):
