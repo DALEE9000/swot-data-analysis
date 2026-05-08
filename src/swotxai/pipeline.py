@@ -280,6 +280,9 @@ def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
         cb("load_goes", 0.0, f"Loading GOES SST from S3: {goes_path_str}...")
         if goes_path_str.endswith(".pkl"):
             ds_g = _load_s3_pkl(goes_path_str)
+            if not isinstance(ds_g, xr.Dataset):
+                cb("load_goes", 1.0, f"GOES pkl contains {type(ds_g).__name__}, expected xr.Dataset — skipping.")
+                return None
         else:
             import s3fs
             fs = s3fs.S3FileSystem(anon=True)
