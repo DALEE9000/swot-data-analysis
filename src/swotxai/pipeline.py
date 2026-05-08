@@ -629,10 +629,13 @@ def step_evaluate(
     cb: ProgressCb,
 ) -> dict:
     from sklearn.metrics import mean_squared_error, r2_score
+    from sklearn.model_selection import train_test_split
     from swotxai.swotxai_utils import concat_flattened
 
     cb("evaluate", 0.0, "Computing evaluation metrics...")
-    X_test_u, X_test_v, y_test_u, y_test_v = concat_flattened(flattened, training_percentage=0.8, held_out=True)
+    X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=1.0)
+    _, X_test_u, _, y_test_u = train_test_split(X_u, y_u, test_size=0.2, random_state=config.random_state)
+    _, X_test_v, _, y_test_v = train_test_split(X_v, y_v, test_size=0.2, random_state=config.random_state)
 
     try:
         from cuml.ensemble import RandomForestRegressor as cuRF

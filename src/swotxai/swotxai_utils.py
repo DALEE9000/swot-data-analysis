@@ -841,8 +841,3 @@ def build_frame_dicts(
                 print(f"Skipping cycle {frame}, pass {j}: {type(e).__name__}: {e}", flush=True)
 
     return swot_dict, hfr_dict
-
-
-'''
-Function to treat random forest as a field predictor rather than pointwise prediction.
-'''
