@@ -188,19 +188,16 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
         cb("load_era5", 1.0, "ERA5 path not set — skipping.")
         return None
 
-    # 1. S3 pkl fast path — check era5_pkl_path first
+    # 1. pkl fast path — try loading directly (avoids silent _s3_exists auth failures)
     pkl_path = config.era5_pkl_path
     if use_cache and pkl_path:
-        if pkl_path.startswith("s3://") and _s3_exists(pkl_path):
-            cb("load_era5", 0.0, f"Loading ERA5 from S3 pkl: {pkl_path}...")
-            era5 = _load_s3_pkl(pkl_path)
-            cb("load_era5", 1.0, "ERA5 loaded from S3 pkl.")
+        try:
+            cb("load_era5", 0.0, f"Loading ERA5 pkl from {pkl_path}...")
+            era5 = _load_s3_pkl(pkl_path) if pkl_path.startswith("s3://") else _load(Path(pkl_path))
+            cb("load_era5", 1.0, "ERA5 loaded from pkl.")
             return era5
-        elif not pkl_path.startswith("s3://") and Path(pkl_path).exists():
-            cb("load_era5", 0.0, f"Loading ERA5 from local pkl: {pkl_path}...")
-            era5 = _load(Path(pkl_path))
-            cb("load_era5", 1.0, "ERA5 loaded from local pkl.")
-            return era5
+        except FileNotFoundError:
+            cb("load_era5", 0.0, f"ERA5 pkl not found at {pkl_path} — falling back to source.")
 
     # 2. Local run-scoped cache
     cache_path = config.cache_path("era5")
