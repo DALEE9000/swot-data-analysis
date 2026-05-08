@@ -46,7 +46,7 @@ class BatchConfig:
     cycles_start: int          = 474
     cycles_end: int            = 578
     cache_dir: str             = "cache"
-    fps: int                   = 4
+    fps: int                   = 8
     dpi: int                   = 150
     swot_pkl_path: str | None  = None
     hfr_pkl_path: str | None   = None

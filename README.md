@@ -4,30 +4,55 @@ Machine learning pipeline that combines **SWOT satellite altimetry** (sea surfac
 
 ---
 
-## Installation
+## Local
 
 Requires Python ≥ 3.10.
 
 ```bash
 pip install -e ".[dev]"
+streamlit run app.py
 ```
 
-## Installation From the Columbia LEAP Jupyter Hub
+---
+
+## Columbia LEAP JupyterHub
+
+### Install
 
 ```bash
-cd swot-data-analysis
+cd ~/swot-data-analysis
 pip install -e .
+conda install -c nvidia cuda-toolkit=12.9
+pip install cuml-cu12 --extra-index-url=https://pypi.nvidia.com
 ```
 
-## Installation From Vast.ai
+> If cuML fails due to a CUDA driver mismatch, set `use_gpu: false` in `config.yaml` to fall back to sklearn on CPU.
 
-Use the **NVIDIA RAPIDS** template when renting the instance — cuML is pre-installed in the image, no extra GPU dependencies needed. Connect with port forwarding so the Streamlit UI is accessible locally:
+### Run
+
+```bash
+streamlit run app.py --server.port 8501
+```
+
+Open in your browser:
+
+```
+https://leap.2i2c.cloud/user/<USERNAME>/proxy/8501/
+```
+
+---
+
+## Vast.ai
+
+### Setup
+
+Use the **NVIDIA RAPIDS** template — cuML is pre-installed. Connect with port forwarding:
 
 ```bash
 ssh -p <PORT> -i ~/.ssh/id_ed25519 -L 8501:localhost:8501 root@<IP>
 ```
 
-Then on the instance:
+Clone and install:
 
 ```bash
 git clone https://github.com/DALEE9000/swot-data-analysis.git
@@ -35,45 +60,29 @@ cd swot-data-analysis
 pip install -e .
 ```
 
-Verify cuML is working:
+Verify cuML:
 
 ```bash
 python -c "from cuml.ensemble import RandomForestRegressor; print('OK')"
 ```
 
-## Running the app
+### Run
 
-```bash
-streamlit run app.py
-```
-
-## Running the app from a Vast.ai instance
-
-Run with `nohup` so training survives SSH disconnects:
+Use `nohup` so training survives SSH disconnects:
 
 ```bash
 nohup streamlit run app.py --server.port 8501 > nohup.out 2>&1 &
 ```
 
-Then open `localhost:8501` in your browser. To monitor logs:
+Open `localhost:8501` in your browser. Useful commands:
 
 ```bash
-tail -f nohup.out
+tail -f nohup.out                        # monitor logs
+ps aux | grep streamlit | grep -v grep   # check if running
+kill <PID>                               # stop
 ```
 
-To check if it's still running:
-
-```bash
-ps aux | grep streamlit | grep -v grep
-```
-
-To stop it:
-
-```bash
-kill <PID>
-```
-
-**Important:** Do not destroy your instance between sessions — just stop it. ERA5 and GOES are loaded from S3 pkls so they are fast on any instance, but the SWOT/HFR step cache in `cache/` will be lost if you destroy the instance.
+> **Important:** Do not destroy your instance between sessions — just stop it. The SWOT/HFR cache in `cache/` is local and will be lost if the instance is destroyed.
 
 ---
 

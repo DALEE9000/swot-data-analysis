@@ -37,7 +37,8 @@ dependencies = [
   "tqdm",
   "pillow",
   "streamlit>=1.35",
-  "imageio[ffmpeg]"
+  "imageio[ffmpeg]",
+  "lightgbm"
 ]
 
 [project.optional-dependencies]

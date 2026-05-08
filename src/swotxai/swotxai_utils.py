@@ -592,7 +592,7 @@ def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: i
     if use_lgbm:
         import lightgbm as lgb
         rf = lgb.LGBMRegressor(
-            device="gpu", n_estimators=n_estimators, max_depth=max_depth,
+            device="cuda", n_estimators=n_estimators, max_depth=max_depth,
             random_state=random_state, n_jobs=n_jobs, verbose=-1,
         )
         rf.fit(X_train, y_train)

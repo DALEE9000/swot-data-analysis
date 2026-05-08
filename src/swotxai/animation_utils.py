@@ -311,7 +311,7 @@ def generate_frames(
 def assemble_animations_by_pass(
     frame_files: list[str],
     output_stem: str | Path,
-    fps: int = 4,
+    fps: int = 8,
 ) -> dict[str, Path]:
     """
     Split frames by pass number and assemble one MP4 per pass.
@@ -340,7 +340,7 @@ def assemble_animations_by_pass(
 def assemble_animation(
     frame_files: list[str],
     output_path: str | Path,
-    fps: int = 4,
+    fps: int = 8,
 ) -> Path:
     """
     Assemble PNG frames into a GIF or MP4.

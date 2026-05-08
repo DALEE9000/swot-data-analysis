@@ -589,7 +589,7 @@ def step_train(
     X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=0.8)
 
     if config.use_lgbm:
-        backend = "LightGBM (GPU)"
+        backend = "LightGBM (CUDA)"
     elif config.use_gpu:
         backend = "cuML (GPU)"
     else:

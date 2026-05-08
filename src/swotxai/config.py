@@ -69,7 +69,7 @@ class SWOTConfig:
     cycles_end: int = 578
     frame_dir: str = ""          # auto-derived in __post_init__ if blank
     animation_output: str = ""   # auto-derived as {frame_dir}/animation if blank
-    fps: int = 4
+    fps: int = 8
     dpi: int = 150
 
     # --- Caching ---
