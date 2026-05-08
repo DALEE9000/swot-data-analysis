@@ -41,7 +41,7 @@ class SWOTConfig:
     hfr_path: str = ""
     era5_path: str = ""
     era5_pkl_path: str = ""     # S3 (or local) path to a pre-processed ERA5 pkl; auto-saved on first load
-    goes_pkl_path: str | None = None  # optional; GOES panels skipped if None
+    goes_nc_path: str | None = None  # optional; GOES panels skipped if None
 
     # --- Domain ---
     sw_corner: list[float] = field(default_factory=lambda: [-127.0, 37.5])

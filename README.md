@@ -160,7 +160,7 @@ Key fields in `config.yaml`:
 | `swot_path` | S3 or local path to SWOT L3 NetCDF files |
 | `hfr_path` | Path to HFR NetCDF with `u`, `v` velocity components |
 | `era5_pkl_path` | *(optional)* S3 or local path to processed ERA5 pkl; auto-saved on first run from `era5_path` |
-| `goes_pkl_path` | *(optional)* S3 or local path to processed GOES SST pkl |
+| `goes_nc_path` | *(optional)* S3 or local path to GOES SST NetCDF file |
 | `sw_corner` / `ne_corner` | Bounding box `[lon, lat]` |
 | `mission` | `"calval"` (1-day repeat, cycles 474–578) or `"science"` (21-day, cycles 1–16) |
 | `features` | RF input features — any of `mdt, ssha_filtered, ugos_filtered, vgos_filtered, ugosa_filtered, vgosa_filtered, era5_u, era5_v, SST` |

@@ -37,7 +37,7 @@ class BatchConfig:
     swot_path: str             = ""
     hfr_path: str              = ""
     era5_path: str             = ""
-    goes_pkl_path: str | None       = None
+    goes_nc_path: str | None       = None
     sw_corner: list[float]     = field(default_factory=lambda: [-127.0, 37.5])
     ne_corner: list[float]     = field(default_factory=lambda: [-123.0, 42.5])
     mission: str               = "calval"
@@ -59,7 +59,7 @@ def derive_base_run_id(batch_cfg: BatchConfig) -> str:
         "swot_path":      batch_cfg.swot_path,
         "hfr_path":       batch_cfg.hfr_path,
         "era5_path":      batch_cfg.era5_path,
-        "goes_pkl_path":       batch_cfg.goes_pkl_path,
+        "goes_nc_path":       batch_cfg.goes_nc_path,
         "sw_corner":      batch_cfg.sw_corner,
         "ne_corner":      batch_cfg.ne_corner,
         "mission":        batch_cfg.mission,
@@ -80,7 +80,7 @@ def _build_job_config(batch_cfg: BatchConfig, job: JobSpec, sklearn_n_jobs: int)
         swot_path        = batch_cfg.swot_path,
         hfr_path         = batch_cfg.hfr_path,
         era5_path        = batch_cfg.era5_path,
-        goes_pkl_path         = batch_cfg.goes_pkl_path,
+        goes_nc_path         = batch_cfg.goes_nc_path,
         sw_corner        = batch_cfg.sw_corner,
         ne_corner        = batch_cfg.ne_corner,
         mission          = batch_cfg.mission,
@@ -137,7 +137,7 @@ def run_batch(
         swot_path        = batch_cfg.swot_path,
         hfr_path         = batch_cfg.hfr_path,
         era5_path        = batch_cfg.era5_path,
-        goes_pkl_path         = batch_cfg.goes_pkl_path,
+        goes_nc_path         = batch_cfg.goes_nc_path,
         sw_corner        = batch_cfg.sw_corner,
         ne_corner        = batch_cfg.ne_corner,
         mission          = batch_cfg.mission,

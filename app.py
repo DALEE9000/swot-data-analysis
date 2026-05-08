@@ -146,7 +146,7 @@ with st.sidebar:
         swot_pkl_path = None
         hfr_pkl_path  = None
     era5_pkl_path = st.text_input("ERA5 pkl path (S3 or local) — optional", value=base.era5_pkl_path)
-    goes_pkl_path = st.text_input("GOES SST pkl path (S3 or local) — optional", value=base.goes_pkl_path or "")
+    goes_nc_path = st.text_input("GOES SST NC path (S3 or local) — optional", value=base.goes_nc_path or "")
 
     # --- Domain (hidden when preset) ---
     if using_preset:
@@ -246,7 +246,7 @@ with st.sidebar:
     try:
         current_config = SWOTConfig(
             swot_path=swot_path, hfr_path=hfr_path, era5_pkl_path=era5_pkl_path,
-            goes_pkl_path=goes_pkl_path or None,
+            goes_nc_path=goes_nc_path or None,
             sw_corner=[sw_lon, sw_lat], ne_corner=[ne_lon, ne_lat],
             mission=mission,
             sph_calval_path=sph_calval_path, sph_science_path=sph_science_path,
@@ -636,7 +636,7 @@ with tab_batch:
             swot_path        = swot_path,
             hfr_path         = hfr_path,
             era5_pkl_path    = era5_pkl_path,
-            goes_pkl_path    = goes_pkl_path or None,
+            goes_nc_path     = goes_nc_path or None,
             sw_corner        = [sw_lon, sw_lat],
             ne_corner        = [ne_lon, ne_lat],
             mission          = mission,

@@ -7,7 +7,7 @@
 swot_path: "s3://swot-ai-ssv/SWOT_L3/calval/Expert_reproc_v3_uswc_calval"
 hfr_path: ""          # path to HFR netCDF (u, v velocity components)
 era5_pkl_path: "s3://swot-ai-ssv/experiments/uswc/era5/era5wind_2023_calval_uswc_isobaricinhPa1000.pkl"
-goes_pkl_path: "s3://swot-ai-ssv/experiments/uswc/goes/goes_sst_calval_uswc.pkl"
+goes_nc_path: "s3://swot-ai-ssv/noaa-goes18/geographic_subsets/uswc/goes_sst_calval_uswc.nc"
 
 # ---------------------------------------------------------------------------
 # Domain — bounding box [longitude, latitude]
