@@ -600,7 +600,8 @@ def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: i
     if _use_cuml:
         X_train_f32 = np.asarray(X_train, dtype="float32")
         y_train_f32 = np.asarray(y_train, dtype="float32")
-        rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)
+        rf = cuRF(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state,
+                  max_features=1.0, n_bins=256)
         rf.fit(X_train_f32, y_train_f32)
         # Capture importances now — cuML loses them after joblib/pickle serialization
         try:
