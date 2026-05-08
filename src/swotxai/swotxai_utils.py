@@ -586,8 +586,21 @@ def concat_flattened(flattened_data: dict, training_percentage: float = 0.8):
         random_state (int), 
         n_jobs (int)
 '''
-def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = True):
+def random_forest(X: pd.DataFrame, y: pd.Series, n_estimators: int, max_depth: int, random_state: int, n_jobs: int, use_gpu: bool = True, use_lgbm: bool = False):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
+
+    if use_lgbm:
+        import lightgbm as lgb
+        rf = lgb.LGBMRegressor(
+            device="gpu", n_estimators=n_estimators, max_depth=max_depth,
+            random_state=random_state, n_jobs=n_jobs, verbose=-1,
+        )
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+        print(f"RMSE: {rmse:.4f}, R²: {r2:.4f}")
+        return rf
 
     _use_cuml = False
     if use_gpu:

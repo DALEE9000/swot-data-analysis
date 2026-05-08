@@ -62,6 +62,7 @@ class SWOTConfig:
     random_state: int = 42
     sklearn_n_jobs: int = -1  # -1 = all cores; overridden per-job in batch mode
     use_gpu: bool = True      # use cuML RandomForest (requires NVIDIA GPU + RAPIDS)
+    use_lgbm: bool = False    # use LightGBM GPU RandomForest (fallback if cuML unavailable)
 
     # --- Animation ---
     cycles_start: int = 474

@@ -190,6 +190,17 @@ with st.sidebar:
         value=_cuml_available,
         help="Auto-detected based on whether cuML is installed.",
     )
+    try:
+        import lightgbm as lgb  # noqa: F401
+        _lgbm_available = True
+    except ImportError:
+        _lgbm_available = False
+    use_lgbm = st.checkbox(
+        "Use LightGBM GPU (fallback if cuML unavailable)",
+        value=(not _cuml_available and _lgbm_available),
+        help="Uses LightGBM with device='gpu'. Ignored if Use GPU (cuML) is also checked — LightGBM takes priority when enabled.",
+        disabled=not _lgbm_available,
+    )
 
     # --- Animation ---
     st.subheader("Animation")
@@ -252,7 +263,7 @@ with st.sidebar:
             sph_calval_path=sph_calval_path, sph_science_path=sph_science_path,
             features=selected_features,
             stencil_k=stencil_k, n_estimators=n_estimators,
-            max_depth=max_depth, random_state=42, use_gpu=use_gpu,
+            max_depth=max_depth, random_state=42, use_gpu=use_gpu, use_lgbm=use_lgbm,
             cycles_start=int(cycles_start), cycles_end=int(cycles_end),
             frame_dir="", animation_output=anim_output,
             fps=fps, dpi=dpi, cache_dir=cache_dir, run_id=run_id,

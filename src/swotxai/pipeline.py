@@ -588,12 +588,17 @@ def step_train(
     cb("train", 0.0, "Concatenating training data...")
     X_u, X_v, y_u, y_v = concat_flattened(flattened, training_percentage=0.8)
 
-    backend = "cuML (GPU)" if config.use_gpu else f"sklearn (CPU, n_jobs={config.sklearn_n_jobs})"
+    if config.use_lgbm:
+        backend = "LightGBM (GPU)"
+    elif config.use_gpu:
+        backend = "cuML (GPU)"
+    else:
+        backend = f"sklearn (CPU, n_jobs={config.sklearn_n_jobs})"
     cb("train", 0.3, f"Training RF for u-velocity (n_estimators={config.n_estimators}, backend={backend})...")
-    rf_u = random_forest(X_u, y_u, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu)
+    rf_u = random_forest(X_u, y_u, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu, use_lgbm=config.use_lgbm)
 
     cb("train", 0.7, f"Training RF for v-velocity (backend={backend})...")
-    rf_v = random_forest(X_v, y_v, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu)
+    rf_v = random_forest(X_v, y_v, config.n_estimators, config.max_depth, config.random_state, n_jobs=config.sklearn_n_jobs, use_gpu=config.use_gpu, use_lgbm=config.use_lgbm)
 
     _save_model(rf_u, cache_path_u)
     _save_model(rf_v, cache_path_v)
