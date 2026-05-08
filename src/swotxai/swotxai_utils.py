@@ -494,7 +494,8 @@ def rf_flattening_stencil(
     mask_u = ~np.isnan(y_u)
     mask_v = ~np.isnan(y_v)
 
-    df = pd.DataFrame(X)
+    col_names = [f"{f}_d{di}_{dj}" for f in features for di in range(k) for dj in range(k)]
+    df = pd.DataFrame(X, columns=col_names)
     y_u = pd.Series(y_u, name="u")
     y_v = pd.Series(y_v, name="v")
 

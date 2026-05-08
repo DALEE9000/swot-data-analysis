@@ -66,6 +66,34 @@ Verify cuML:
 python -c "from cuml.ensemble import RandomForestRegressor; print('OK')"
 ```
 
+Check version and CUDA compatibility:
+
+```bash
+python -c "import cuml; print(cuml.__version__)"
+python -c "import cuml; print(cuml.__file__)"   # should be cu12, not cu11
+nvidia-smi --query-gpu=name,compute_cap --format=csv
+```
+
+If cuML is the CUDA 11 build but your system has CUDA 12 (check `nvidia-smi`), FIL inference will fail at prediction time with `All cuML FIL configurations failed`. Fix with:
+
+```bash
+conda install -c rapidsai -c conda-forge -c nvidia cuml=24.8 cuda-version=12.6 -y
+```
+
+Then delete the training cache and retrain — models pickled with the old cuML build are incompatible:
+
+```bash
+rm cache/<run_id>/rf_u.pkl cache/<run_id>/rf_v.pkl cache/<run_id>/rf_meta.pkl cache/<run_id>/evaluate.pkl cache/<run_id>/inference.pkl
+```
+
+If fixing cuML is not practical, use LightGBM GPU instead (works with CUDA 12 out of the box):
+
+```yaml
+# config.yaml
+use_gpu: false
+use_lgbm: true
+```
+
 ### Run
 
 Use `nohup` so training survives SSH disconnects:
