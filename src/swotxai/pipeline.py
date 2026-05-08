@@ -597,7 +597,12 @@ def step_train(
 
     _save_model(rf_u, cache_path_u)
     _save_model(rf_v, cache_path_v)
-    _save({"features": config.features, "stencil_k": config.stencil_k}, config.cache_path("rf_meta"))
+    _save({
+        "features":              config.features,
+        "stencil_k":             config.stencil_k,
+        "feature_importances_u": np.asarray(rf_u.feature_importances_),
+        "feature_importances_v": np.asarray(rf_v.feature_importances_),
+    }, config.cache_path("rf_meta"))
     cb("train", 1.0, "Training complete.")
     return rf_u, rf_v
 
@@ -639,13 +644,29 @@ def step_evaluate(
         meta = _load(meta_path)
         train_features = meta["features"]
         k = meta["stencil_k"]
+        fi_raw_u = meta.get("feature_importances_u")
+        fi_raw_v = meta.get("feature_importances_v")
     else:
         train_features = config.features
         k = config.stencil_k
-    n_features = len(rf_u.feature_importances_) // (k * k)
-    fi_u = rf_u.feature_importances_.reshape(n_features, k * k).mean(axis=1)
-    fi_v = rf_v.feature_importances_.reshape(n_features, k * k).mean(axis=1)
-    feature_names = train_features if len(train_features) == n_features else [f"feature_{i}" for i in range(n_features)]
+        fi_raw_u = getattr(rf_u, "feature_importances_", None)
+        fi_raw_v = getattr(rf_v, "feature_importances_", None)
+        if fi_raw_u is not None:
+            fi_raw_u = np.asarray(fi_raw_u)
+        if fi_raw_v is not None:
+            fi_raw_v = np.asarray(fi_raw_v)
+
+    n_base_features = len(train_features)
+    feature_names = train_features
+    if fi_raw_u is not None and fi_raw_v is not None:
+        n_features = len(fi_raw_u) // (k * k)
+        fi_u = fi_raw_u.reshape(n_features, k * k).mean(axis=1)
+        fi_v = fi_raw_v.reshape(n_features, k * k).mean(axis=1)
+        if n_features != n_base_features:
+            feature_names = [f"feature_{i}" for i in range(n_features)]
+    else:
+        fi_u = np.zeros(n_base_features)
+        fi_v = np.zeros(n_base_features)
 
     metrics = {
         "rmse_u": float(np.sqrt(mean_squared_error(y_test_u, pred_u))),
