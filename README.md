@@ -79,7 +79,8 @@ Open `localhost:8501` in your browser. Useful commands:
 ```bash
 tail -f nohup.out                        # monitor logs
 ps aux | grep streamlit | grep -v grep   # check if running
-kill <PID>                               # stop
+kill <PID>                               # stop by PID
+pkill -f "streamlit run"                 # stop by name
 ```
 
 > **Important:** Do not destroy your instance between sessions — just stop it. The SWOT/HFR cache in `cache/` is local and will be lost if the instance is destroyed.

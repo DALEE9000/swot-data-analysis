@@ -556,12 +556,13 @@ def flattening(
     X_u_all, X_v_all, y_u_all, y_v_all : np.ndarray
         Concatenated arrays along axis 0.
 '''
-def concat_flattened(flattened_data: dict, training_percentage: float = 0.8):
+def concat_flattened(flattened_data: dict, training_percentage: float = 0.8, held_out: bool = False):
     X_u_list, X_v_list, y_u_list, y_v_list = [], [], [], []
 
     for t, entries in flattened_data.items():
         n = max(1, int(len(entries) * training_percentage))
-        for entry in entries[:n]:
+        subset = entries[n:] if held_out else entries[:n]
+        for entry in subset:
             X_u_list.append(entry["X_u"])
             X_v_list.append(entry["X_v"])
             y_u_list.append(entry["y_u"])
