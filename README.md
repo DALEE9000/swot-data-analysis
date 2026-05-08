@@ -204,6 +204,7 @@ Key fields in `config.yaml`:
 | `features` | RF input features — any of `mdt, ssha_filtered, ugos_filtered, vgos_filtered, ugosa_filtered, vgosa_filtered, era5_u, era5_v, SST` |
 | `stencil_k` | Spatial context window size (odd integer: 1, 3, 5, 7) |
 | `run_id` | Unique name for this experiment's cache (letters/digits/`_`/`-`) |
+| `sklearn_n_jobs` | CPU parallelism for sklearn RF (`-1` = all cores). Note: `n_jobs=-1` causes slight non-determinism run-to-run even with a fixed `random_state` due to thread scheduling. Set to `1` for fully reproducible results at the cost of speed. |
 
 ---
 
