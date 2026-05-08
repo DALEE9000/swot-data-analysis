@@ -597,11 +597,20 @@ def step_train(
 
     _save_model(rf_u, cache_path_u)
     _save_model(rf_v, cache_path_v)
+    def _fi(rf):
+        # _feature_importances_saved is set by random_forest() for cuML models
+        # before the model is serialized (cuML loses feature_importances_ on reload).
+        saved = getattr(rf, "_feature_importances_saved", None)
+        if saved is not None:
+            return np.asarray(saved)
+        raw = getattr(rf, "feature_importances_", None)
+        return np.asarray(raw) if raw is not None else None
+
     _save({
         "features":              config.features,
         "stencil_k":             config.stencil_k,
-        "feature_importances_u": np.asarray(rf_u.feature_importances_),
-        "feature_importances_v": np.asarray(rf_v.feature_importances_),
+        "feature_importances_u": _fi(rf_u),
+        "feature_importances_v": _fi(rf_v),
     }, config.cache_path("rf_meta"))
     cb("train", 1.0, "Training complete.")
     return rf_u, rf_v
