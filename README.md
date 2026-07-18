@@ -159,8 +159,15 @@ SWOT-data-analysis/
 │       ├── rf_meta.pkl
 │       └── inference.pkl
 │
+├── experiments/                    # Per-region data mirrors, model weights, registry
+│   ├── {region}/                   #   swot_cycles/ hfr_target/ era5/ goes/ (S3 mirrors)
+│   │   └── {rf,ann}/               #   trained model weights + inference per backend
+│   └── registry/{rf,ann}/          #   experiments.jsonl + experiments_summary.csv (tracked)
+├── scripts/                        # Data campaign tooling (colocation, aggregation, ERA5/GOES)
+├── notebooks/                      # Analysis notebooks
 ├── frames/                         # PNG animation frames output
-├── SWOTxAI/                        # Experiment outputs and scratch notebooks
+├── animations/                     # Assembled MP4s
+├── figures/                        # Region overview figures
 ├── scratch_notebooks/              # Development scratch scripts
 ├── examples/                       # Tutorial notebooks (not tracked)
 └── swot_documentation/             # Reference documentation and notes
@@ -230,7 +237,7 @@ Egress is the only real cost risk (~$0.09/GB out; storage is ~$5/month; uploads
 and requests are ≈ free). A July 2026 colocation campaign learned this the hard
 way: per-pass slab streaming from S3 totalled ~4 TB (~$290) — always mirror data
 locally before compute jobs read it repeatedly (training presets already read
-local mirrors under `SWOTxAI/code/experiments/…` first). Two guards are installed
+local mirrors under `experiments/…` first). Two guards are installed
 on the account (539247449365):
 
 1. **Budget alerts** — AWS Budget `monthly-cost-guard` ($20/month) emails at

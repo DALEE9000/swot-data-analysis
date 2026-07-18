@@ -122,7 +122,7 @@ class SWOTConfig:
     # --- Experiment region: an HFR network id ("uswc", "usegc", "gak",
     # "akns", "glna") or None ---
     # When set, flattened / inference / weights are routed into
-    # SWOTxAI/code/experiments/{region}/…  instead of cache_dir.
+    # experiments/{region}/…  instead of cache_dir.
     # Model-specific artifacts live under a per-model subdirectory
     # (…/{region}/rf/… or …/{region}/ann/…).
     region: str | None = None
@@ -160,10 +160,10 @@ class SWOTConfig:
         """
         ident = self.experiment_id or self.run_id or "run"
         if not self.frame_dir:
-            base = f"SWOTxAI/frames/{self.region}/{self.model}" if self.region else f"SWOTxAI/frames/{self.model}"
+            base = f"frames/{self.region}/{self.model}" if self.region else f"frames/{self.model}"
             self.frame_dir = f"{base}/{ident}"
         if not self.animation_output:
-            base = f"SWOTxAI/animations/{self.region}/{self.model}" if self.region else f"SWOTxAI/animations/{self.model}"
+            base = f"animations/{self.region}/{self.model}" if self.region else f"animations/{self.model}"
             self.animation_output = f"{base}/{ident}"
 
     def _file_stem(self, name: str, ident: str | None = None) -> str:
@@ -196,7 +196,7 @@ class SWOTConfig:
         if name == "flattened":
             stem = self._flat_stem()
             if self.region:
-                return Path("SWOTxAI/code/experiments") / self.region / "flattened" / f"{stem}.pkl"
+                return Path("experiments") / self.region / "flattened" / f"{stem}.pkl"
             return Path(self.cache_dir) / f"{stem}.pkl"
 
         suffix = ".pkl"
@@ -212,7 +212,7 @@ class SWOTConfig:
         if name in _MODEL_ARTIFACTS:
             stem = self._file_stem(name, ident=self.run_id or self.experiment_id)
             if self.region:
-                base = Path("SWOTxAI/code/experiments") / self.region / self.model
+                base = Path("experiments") / self.region / self.model
                 if name == "inference":
                     return base / self.mission / f"{stem}{suffix}"
                 return base / "weights" / f"{stem}{suffix}"

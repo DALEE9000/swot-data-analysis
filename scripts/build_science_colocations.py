@@ -124,12 +124,12 @@ def region_dir(region: str) -> Path:
 
 
 def pkl_path(region: str) -> Path:
-    return Path(f"SWOTxAI/code/experiments/{region}/swot_cycles/"
+    return Path(f"experiments/{region}/swot_cycles/"
                 + _m()["pkl_tmpl"].format(region=region))
 
 
 def hfr_pkl_path(region: str) -> Path:
-    return Path(f"SWOTxAI/code/experiments/{region}/hfr_target/"
+    return Path(f"experiments/{region}/hfr_target/"
                 + _m()["hfr_tmpl"].format(region=region))
 
 

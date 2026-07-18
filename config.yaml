@@ -78,8 +78,8 @@ ann_device:        "auto"           # "auto" | "cuda" | "cpu"
 # ---------------------------------------------------------------------------
 cycles_start: 474
 cycles_end:   578
-frame_dir:    ""            # blank → auto: SWOTxAI/frames/[region/]{model}/{experiment_id}
-animation_output: ""        # blank → auto: SWOTxAI/animations/[region/]{model}/{experiment_id}
+frame_dir:    ""            # blank → auto: frames/[region/]{model}/{experiment_id}
+animation_output: ""        # blank → auto: animations/[region/]{model}/{experiment_id}
 fps:  8
 dpi:  150
 

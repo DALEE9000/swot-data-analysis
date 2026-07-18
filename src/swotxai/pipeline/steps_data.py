@@ -15,15 +15,14 @@ ProgressCb = Callable[[str, float, str], None]
 def _load_preset_pkl(path: str, cb: ProgressCb, step: str):
     """Load a preset pkl, preferring a local mirror of the S3 layout.
 
-    s3://swot-ai-ssv/experiments/... has local mirrors at experiments/... and
-    SWOTxAI/code/experiments/... — freshly built pkls live there before they
-    are uploaded, and reading them avoids re-streaming from S3."""
+    s3://swot-ai-ssv/experiments/... mirrors 1:1 to experiments/... at the
+    repo root — freshly built pkls live there before they are uploaded, and
+    reading them avoids re-streaming from S3."""
     if path.startswith("s3://"):
-        rel = path.replace("s3://swot-ai-ssv/", "")
-        for cand in (Path(rel), Path("SWOTxAI/code") / rel):
-            if cand.exists():
-                cb(step, 0.0, f"Loading preset pkl from local mirror {cand}...")
-                return _load(cand)
+        cand = Path(path.replace("s3://swot-ai-ssv/", ""))
+        if cand.exists():
+            cb(step, 0.0, f"Loading preset pkl from local mirror {cand}...")
+            return _load(cand)
         cb(step, 0.0, f"Streaming preset pkl from {path}...")
         return _load_s3_pkl(path)
     cb(step, 0.0, f"Loading preset pkl from {path}...")

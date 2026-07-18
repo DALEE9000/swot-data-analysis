@@ -6,7 +6,7 @@ Source: s3://nsf-ncar-era5/e5.oper.an.sfc/YYYYMM/ (anonymous), monthly global
 vars era5_u / era5_v and coords latitude / longitude / time — exactly what
 step_load_era5's pkl fast-path and interp_to_swot expect.
 
-Outputs SWOTxAI/code/experiments/{region}/era5/era5wind_{mission}_{region}_10m.pkl
+Outputs experiments/{region}/era5/era5wind_{mission}_{region}_10m.pkl
 (upload to s3://swot-ai-ssv/experiments/... is the caller's job — AWS CLI).
 
 Usage:
@@ -78,7 +78,7 @@ def build(mission: str, regions: list[str], force: bool) -> None:
     months, covered = MISSIONS[mission]
     regions = [r for r in regions if r in covered]
     outs = {
-        r: Path(f"SWOTxAI/code/experiments/{r}/era5/era5wind_{mission}_{r}_10m.pkl")
+        r: Path(f"experiments/{r}/era5/era5wind_{mission}_{r}_10m.pkl")
         for r in regions
     }
     todo = [r for r in regions if force or not outs[r].exists()]

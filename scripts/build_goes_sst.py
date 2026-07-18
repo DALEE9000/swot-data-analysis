@@ -133,7 +133,7 @@ def sst_file_for_hour(fs: s3fs.S3FileSystem, sat: str, t: np.datetime64) -> str 
 
 def build(region: str, mission: str, force: bool) -> None:
     sat = SATELLITE[region]
-    out = Path(f"SWOTxAI/code/experiments/{region}/goes/"
+    out = Path(f"experiments/{region}/goes/"
                f"goes_sst_{mission}_{region}.nc")
     if out.exists() and not force:
         log(f"{region}/{mission}: {out.name} exists — skipping")

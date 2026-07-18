@@ -7,7 +7,7 @@ reads the LOCAL raw hourly archives in HFR/Code/Data — kept as originals —
 and colocates each SWOT science pass with the 25-hour centered mean HFR
 field at that resolution. Memory stays flat: one ±31 h slab per pass.
 
-Outputs SWOTxAI/code/experiments/{region}/hfr_target/hfr_science_{region}_{res}.pkl
+Outputs experiments/{region}/hfr_target/hfr_science_{region}_{res}.pkl
 then uploads via AWS CLI conventions are handled by the caller.
 
 Usage:
@@ -67,7 +67,7 @@ def log(msg: str) -> None:
 
 def swot_pkl(region: str):
     """Load the region's science SWOT pkl (local mirror, else S3)."""
-    local = Path(f"SWOTxAI/code/experiments/{region}/swot_cycles/"
+    local = Path(f"experiments/{region}/swot_cycles/"
                  f"swot_expert_reproc_v3_{region}_science.pkl")
     if local.exists():
         with open(local, "rb") as f:
@@ -166,7 +166,7 @@ def slab_mean(files_idx, t0: np.datetime64):
 def build(target: str, force: bool = False) -> None:
     region, folder_name = TARGETS[target]
     res = target.split("_", 1)[1]
-    out = Path(f"SWOTxAI/code/experiments/{region}/hfr_target/"
+    out = Path(f"experiments/{region}/hfr_target/"
                f"hfr_science_{region}_{res}.pkl")
     if out.exists() and not force:
         log(f"{target}: {out.name} exists — skipping")

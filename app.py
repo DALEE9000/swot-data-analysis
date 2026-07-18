@@ -545,12 +545,12 @@ with st.sidebar:
             cycles_end   = col4.number_input("Cycle end",   value=base.cycles_end,   step=1)
 
     _anim_region = pcfg.get("region") if using_preset else None
-    _anim_base   = (f"SWOTxAI/animations/{_anim_region}/{model_kind}" if _anim_region
-                    else f"SWOTxAI/animations/{model_kind}")
+    _anim_base   = (f"animations/{_anim_region}/{model_kind}" if _anim_region
+                    else f"animations/{model_kind}")
     anim_name    = st.text_input(
         "Animation name — optional",
         key="anim_name",
-        help="Stem for output files, saved as SWOTxAI/animations/[region/]{model}/{name}_pass_N.mp4. "
+        help="Stem for output files, saved as animations/[region/]{model}/{name}_pass_N.mp4. "
              "Leave blank to name outputs after the run's unique experiment ID.",
     )
     anim_output  = f"{_anim_base}/{anim_name}" if anim_name else ""
@@ -571,7 +571,7 @@ with st.sidebar:
         cache_dir = base.cache_dir
         _region = pcfg.get("region", "")
         st.caption(
-            f"Model outputs cached to `SWOTxAI/code/experiments/{_region}/{model_kind}/` "
+            f"Model outputs cached to `experiments/{_region}/{model_kind}/` "
             f"(weights, inference — reused when Run ID matches). Shared data "
             f"(flattened, cycles, HFR) lives at `…/{_region}/` and is reused by both models."
         )
@@ -860,7 +860,7 @@ with tab_animation:
     # no animation name was given); fall back to the configured dir.
     _frame_dir = (st.session_state.results.get("frame_dir")
                   or (current_config.frame_dir if config_valid else ""))
-    frame_dir_path = Path(_frame_dir) if _frame_dir else Path("SWOTxAI/frames")
+    frame_dir_path = Path(_frame_dir) if _frame_dir else Path("frames")
 
     if anim_paths:
         st.subheader("Animation")
@@ -1392,7 +1392,7 @@ with tab_experiments:
         "Every completed run is recorded automatically — full config, data inputs, "
         "features, stenciling, hyperparameters, metrics, and timings — under a unique ID. "
         "Registries are partitioned per model in "
-        "`SWOTxAI/code/experiments/registry/{rf,ann}/`."
+        "`experiments/registry/{rf,ann}/`."
     )
 
     exp_model = st.radio("Show", ["all", "rf", "ann"], horizontal=True, key="exp_model_filter")

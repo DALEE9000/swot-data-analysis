@@ -3,8 +3,8 @@
 Each pipeline run that reaches completion is recorded under a per-model
 registry directory, so RF and ANN experiment histories stay partitioned:
 
-    SWOTxAI/code/experiments/registry/{rf,ann}/experiments.jsonl   (full records)
-    SWOTxAI/code/experiments/registry/{rf,ann}/experiments_summary.csv (flat view)
+    experiments/registry/{rf,ann}/experiments.jsonl   (full records)
+    experiments/registry/{rf,ann}/experiments_summary.csv (flat view)
 
 A record captures everything fed into the run — the full config (data inputs,
 domain, features, stenciling, model hyperparameters), the resulting metrics
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from swotxai.config import SWOTConfig
 
-REGISTRY_ROOT = Path("SWOTxAI/code/experiments/registry")
+REGISTRY_ROOT = Path("experiments/registry")
 
 _SUMMARY_COLUMNS = [
     "experiment_id", "recorded_at", "model", "run_id", "region", "mission",
