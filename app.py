@@ -370,9 +370,10 @@ with st.sidebar:
         st.info(
             f"**{preset}** trains ONE model on the pooled data of "
             f"**{', '.join(pcfg['regions'])}** — each region's SWOT/HFR/ERA5/GOES "
-            "artifacts stream from S3, flatten per region, then train together. "
-            "Metrics report pooled + per-region scores; inference/animation are "
-            "skipped (single-grid concepts)."
+            "artifacts load from the local `experiments/` mirrors (S3 only as "
+            "fallback for missing files), flatten per region, then train "
+            "together. Metrics report pooled + per-region scores; "
+            "inference/animation are skipped (single-grid concepts)."
         )
         swot_path = hfr_path = ""
         swot_pkl_path = hfr_pkl_path = None
