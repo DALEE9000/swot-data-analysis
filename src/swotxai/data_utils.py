@@ -381,7 +381,7 @@ def reshaping_to_xarray(pred: np.ndarray, swot_regridded: xr.Dataset, name: str)
 
 def plotter(rf_u, rf_v, swot_regridded: dict, hfr_interp_data: dict, flattened_data: dict,
             cycle: int, element: int, predictions: list[str]):
-    from swotxai.training import predict as _predict
+    from swotxai.models import predict as _predict
 
     key = str(cycle).zfill(3)
     df = flattened_data[key][element]['df']

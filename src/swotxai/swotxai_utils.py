@@ -18,4 +18,5 @@ from swotxai.data_utils import (
     plot_dict_assemble,
     build_frame_dicts,
 )
-from swotxai.training import train as random_forest_dispatch, predict
+from swotxai.models.rf.training import train as random_forest_dispatch
+from swotxai.models import predict

@@ -1,18 +1,46 @@
 from __future__ import annotations
 
+import os
 import pickle
+import time
+import uuid
 from pathlib import Path
+
+
+def _replace_into_place(tmp: Path, path: Path) -> None:
+    """Atomically move a finished temp file over the cache path.
+
+    On Windows the destination can be locked by a concurrent reader/writer of
+    the same keyed cache; cache keys encode content, so losing that race is
+    fine — the other party's bytes are equivalent.
+    """
+    try:
+        os.replace(tmp, path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        if not path.exists():
+            raise
 
 
 def _save(obj, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as f:
+    tmp = path.with_name(f"{path.name}.tmp-{uuid.uuid4().hex[:8]}")
+    with open(tmp, "wb") as f:
         pickle.dump(obj, f)
+    _replace_into_place(tmp, path)
 
 
 def _load(path: Path):
-    with open(path, "rb") as f:
-        return pickle.load(f)
+    # Windows: a concurrent os.replace briefly holds the destination in a
+    # delete-pending state where open() raises EACCES — retry through it.
+    for attempt in range(5):
+        try:
+            with open(path, "rb") as f:
+                return pickle.load(f)
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def _cached(path: Path, use_cache: bool) -> bool:
@@ -23,7 +51,9 @@ def _save_model(model, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix == ".joblib":
         import joblib
-        joblib.dump(model, path)
+        tmp = path.with_name(f"{path.name}.tmp-{uuid.uuid4().hex[:8]}")
+        joblib.dump(model, tmp)
+        _replace_into_place(tmp, path)
     else:
         _save(model, path)
 

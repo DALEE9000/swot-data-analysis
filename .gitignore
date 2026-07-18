@@ -182,21 +182,22 @@ CLAUDE.md
 /swot_documentation/
 /scratch_notebooks/
 
-# SWOTxAI frames — keep uswc/usegc dirs but ignore their contents; ignore goes-named dirs
-SWOTxAI/frames/*goes*/
-SWOTxAI/frames/uswc/*
-SWOTxAI/frames/usegc/*
-!SWOTxAI/frames/uswc/.gitkeep
-!SWOTxAI/frames/usegc/.gitkeep
-
-# SWOTxAI animations — keep uswc/usegc dirs but ignore their contents; ignore goes_test
-SWOTxAI/animations/goes_test/
-SWOTxAI/animations/uswc/*
-SWOTxAI/animations/usegc/*
-!SWOTxAI/animations/uswc/.gitkeep
-!SWOTxAI/animations/usegc/.gitkeep
-
-# SWOTxAI misc large folders
-SWOTxAI/images/
-SWOTxAI/papers/
+# Data artifacts — S3 mirrors, colocations, model weights, media outputs.
+# (experiments/registry stays tracked: small provenance jsonl/csv)
+/experiments/*
+!/experiments/registry/
+/frames/
+/animations/
+/images/
+/papers/
+/notebooks/
+/SWOT_L3/
+/cache/
+/SWOTxAI/
+*.nc
+*.nc4
+*.pt
+*.mp4
+*.partial.pkl
+*.legacy_*
 

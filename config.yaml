@@ -25,7 +25,14 @@ sph_calval_path: "orbit_data/sph_calval_swath.zip"
 sph_science_path: "orbit_data/sph_science_swath.zip"
 
 # ---------------------------------------------------------------------------
-# Random Forest features
+# Model backend
+# rf:  random forest (swotxai.models.rf — sklearn / cuML / LightGBM)
+# ann: artificial neural network (swotxai.models.ann — PyTorch MLP)
+# ---------------------------------------------------------------------------
+model: "rf"
+
+# ---------------------------------------------------------------------------
+# Input features (shared by both backends)
 # Available: mdt, ssha_filtered, ugos_filtered, vgos_filtered,
 #            ugosa_filtered, vgosa_filtered, era5_u, era5_v, SST
 # ---------------------------------------------------------------------------
@@ -40,26 +47,47 @@ features:
   - era5_v
   - SST
 
-# ---------------------------------------------------------------------------
-# Model hyperparameters
-# ---------------------------------------------------------------------------
+# --- Shared ML settings ---
 stencil_k:    3     # spatial context window size (must be odd: 1, 3, 5, 7)
-n_estimators: 50
-max_depth:    15
 random_state: 42
+
+# ---------------------------------------------------------------------------
+# Random-forest hyperparameters (used when model: "rf")
+# ---------------------------------------------------------------------------
+rf_n_estimators: 50
+rf_max_depth:    15
+rf_use_gpu:      true    # cuML RandomForest (requires NVIDIA GPU + RAPIDS)
+rf_use_lgbm:     false   # LightGBM GPU RandomForest fallback
+
+# ---------------------------------------------------------------------------
+# ANN hyperparameters (used when model: "ann")
+# ---------------------------------------------------------------------------
+ann_hidden_layers: [256, 256, 128]  # MLP hidden-layer widths
+ann_activation:    "silu"           # silu | relu | gelu | tanh
+ann_dropout:       0.1
+ann_lr:            0.001
+ann_weight_decay:  0.0001
+ann_batch_size:    4096
+ann_max_epochs:    200
+ann_patience:      15               # early stopping (epochs without val improvement)
+ann_val_fraction:  0.1
+ann_device:        "auto"           # "auto" | "cuda" | "cpu"
 
 # ---------------------------------------------------------------------------
 # Animation
 # ---------------------------------------------------------------------------
 cycles_start: 474
 cycles_end:   578
-frame_dir:    "frames/output"
-animation_output: "animation.mp4"
+frame_dir:    ""            # blank → auto: SWOTxAI/frames/[region/]{model}/{experiment_id}
+animation_output: ""        # blank → auto: SWOTxAI/animations/[region/]{model}/{experiment_id}
 fps:  8
 dpi:  150
 
 # ---------------------------------------------------------------------------
-# Caching — intermediate results are pickled here to avoid recomputation
+# Caching — intermediate results are pickled here to avoid recomputation.
+# Model weights and inference outputs are partitioned per backend
+# (…/rf/… vs …/ann/…).
 # ---------------------------------------------------------------------------
 cache_dir: "cache"
-run_id: ""        # required — short unique name, e.g. "calval_v1" (letters/digits/_/- only)
+run_id: ""        # optional — short name (letters/digits/_/- only) that keys cached weights so
+                  # later runs reuse them; blank → each run is keyed by its unique experiment ID

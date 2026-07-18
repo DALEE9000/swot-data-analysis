@@ -62,14 +62,49 @@ def step_animate(
             pass
         return _hfr_time(cycle, j)
 
-    panels = [
-        {
+    # Panels are gated on config.features: the regridded data carries every
+    # SWOT variable, but only fields the model actually used get drawn.
+    # HFR ground truth and the model prediction are always shown.
+    def _swot_var_present(var: str) -> bool:
+        return any(
+            var in ds
+            for ds_list in swot_dict.values()
+            for ds in ds_list
+            if ds is not None
+        )
+
+    panels = []
+
+    gos_selected = any(
+        f in config.features
+        for f in ("ugos_filtered", "vgos_filtered", "ugosa_filtered", "vgosa_filtered")
+    )
+    if gos_selected and _swot_var_present("gos_filtered"):
+        panels.append({
             "title": "SWOT Geostrophic Velocity",
             "data_fn": from_cycle_dict(swot_dict, "gos_filtered"),
             "time_fn": _swot_time,
             "cmap": "viridis", "vmin": 0, "vmax": 2,
             "colorbar_label": "m/s",
-        },
+        })
+
+    ssha_vals = [
+        v for ds_list in swot_dict.values()
+        for ds in ds_list if ds is not None and "ssha_filtered" in ds
+        for v in ds["ssha_filtered"].values.ravel() if np.isfinite(v)
+    ] if "ssha_filtered" in config.features else []
+    if ssha_vals:
+        ssha_lim = float(np.percentile(np.abs(ssha_vals), 98))
+        cb("animate", 0.1, f"SSHA symmetric range (98th pct): ±{ssha_lim:.3f} m")
+        panels.append({
+            "title": "SWOT SSHA",
+            "data_fn": from_cycle_dict(swot_dict, "ssha_filtered"),
+            "time_fn": _swot_time,
+            "cmap": "RdBu_r", "vmin": -ssha_lim, "vmax": ssha_lim,
+            "colorbar_label": "m",
+        })
+
+    panels.extend([
         {
             "title": "HFR Ground Truth SSV",
             "data_fn": from_cycle_dict(hfr_dict, "ssv"),
@@ -84,7 +119,7 @@ def step_animate(
             "cmap": "viridis", "vmin": 0, "vmax": 0.3,
             "colorbar_label": "m/s",
         },
-    ]
+    ])
 
     def _era5_time(cycle: int, j: int) -> pd.Timestamp | None:
         key = str(cycle).zfill(3)
@@ -102,13 +137,8 @@ def step_animate(
             pass
         return None
 
-    has_era5_ssv = any(
-        "era5_ssv" in ds
-        for ds_list in swot_dict.values()
-        for ds in ds_list
-        if ds is not None
-    )
-    if has_era5_ssv:
+    era5_selected = any(f in config.features for f in ("era5_u", "era5_v"))
+    if era5_selected and _swot_var_present("era5_ssv"):
         panels.append({
             "title": "ERA5 Wind Speed",
             "data_fn": from_cycle_dict(swot_dict, "era5_ssv"),
@@ -121,7 +151,7 @@ def step_animate(
         v for ds_list in swot_dict.values()
         for ds in ds_list if ds is not None and "SST" in ds
         for v in ds["SST"].values.ravel() if np.isfinite(v)
-    ]
+    ] if "SST" in config.features else []
     has_sst = bool(sst_vals)
     if has_sst:
         sst_vmin = float(np.percentile(sst_vals, 2))

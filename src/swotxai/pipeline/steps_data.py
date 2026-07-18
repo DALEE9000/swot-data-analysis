@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 from pathlib import Path
@@ -11,17 +12,33 @@ from swotxai.pipeline.io_utils import _save, _load, _cached, _load_s3_pkl, _save
 ProgressCb = Callable[[str, float, str], None]
 
 
+def _load_preset_pkl(path: str, cb: ProgressCb, step: str):
+    """Load a preset pkl, preferring a local mirror of the S3 layout.
+
+    s3://swot-ai-ssv/experiments/... has local mirrors at experiments/... and
+    SWOTxAI/code/experiments/... — freshly built pkls live there before they
+    are uploaded, and reading them avoids re-streaming from S3."""
+    if path.startswith("s3://"):
+        rel = path.replace("s3://swot-ai-ssv/", "")
+        for cand in (Path(rel), Path("SWOTxAI/code") / rel):
+            if cand.exists():
+                cb(step, 0.0, f"Loading preset pkl from local mirror {cand}...")
+                return _load(cand)
+        cb(step, 0.0, f"Streaming preset pkl from {path}...")
+        return _load_s3_pkl(path)
+    cb(step, 0.0, f"Loading preset pkl from {path}...")
+    return _load(Path(path))
+
+
 def step_load_preset_swot(config: SWOTConfig, cb: ProgressCb) -> tuple[dict, dict]:
-    cb("load_swot", 0.0, "Streaming preset SWOT pkl from S3...")
-    swot_regridded = _load_s3_pkl(config.swot_pkl_path)
+    swot_regridded = _load_preset_pkl(config.swot_pkl_path, cb, "load_swot")
     cb("load_swot", 1.0, f"Loaded {len(swot_regridded)} cycles.")
     cb("regrid", 1.0, "Skipped — using preset pkl.")
     return {}, swot_regridded
 
 
 def step_load_preset_hfr(config: SWOTConfig, cb: ProgressCb) -> dict:
-    cb("load_hfr", 0.0, "Streaming preset HFR pkl from S3...")
-    hfr_interp = _load_s3_pkl(config.hfr_pkl_path)
+    hfr_interp = _load_preset_pkl(config.hfr_pkl_path, cb, "load_hfr")
     cb("load_hfr", 1.0, "Loaded preset HFR.")
     cb("interp_hfr", 1.0, "Skipped — using preset pkl.")
     return hfr_interp
@@ -101,6 +118,9 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
     if not config.era5_path and not config.era5_pkl_path:
         cb("load_era5", 1.0, "ERA5 path not set — skipping.")
         return None
+    if not any(f in config.features for f in ("era5_u", "era5_v")):
+        cb("load_era5", 1.0, "era5_u/era5_v not in features — skipping ERA5 load.")
+        return None
 
     pkl_path = config.era5_pkl_path
     if use_cache and pkl_path:
@@ -173,6 +193,9 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
 def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Dataset | None:
     if not config.goes_nc_path:
         cb("load_goes", 1.0, "GOES dir not set — skipping.")
+        return None
+    if "SST" not in config.features:
+        cb("load_goes", 1.0, "SST not in features — skipping GOES load.")
         return None
 
     cache_path = config.cache_path("goes")
@@ -311,7 +334,37 @@ def step_interp_sources(
     return swot_features
 
 
-def step_load_hfr(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Dataset | None:
+def _swot_time_bounds(swot_regridded: dict | None):
+    """(min, max) pass time across regridded SWOT data, padded for the 24-h
+    rolling window — or None if no timestamps are available."""
+    if not swot_regridded:
+        return None
+    times = []
+    for ds_list in swot_regridded.values():
+        for ds in (ds_list if isinstance(ds_list, list) else [ds_list]):
+            if ds is None or "time" not in getattr(ds, "coords", {}):
+                continue
+            t = np.atleast_1d(ds.coords["time"].values).astype("datetime64[ns]")
+            t = t[~np.isnat(t)]
+            if len(t):
+                times.append((t.min(), t.max()))
+    if not times:
+        return None
+    pad = np.timedelta64(36, "h")
+    return min(a for a, _ in times) - pad, max(b for _, b in times) + pad
+
+
+def _coord_slice(ds: xr.Dataset, name: str, lo: float, hi: float) -> slice:
+    vals = ds[name].values
+    return slice(lo, hi) if vals[0] <= vals[-1] else slice(hi, lo)
+
+
+def step_load_hfr(
+    config: SWOTConfig,
+    cb: ProgressCb,
+    use_cache: bool,
+    swot_regridded: dict | None = None,
+) -> xr.Dataset | None:
     if not config.hfr_path:
         cb("load_hfr", 1.0, "HFR path not set — skipping.")
         return None
@@ -323,16 +376,64 @@ def step_load_hfr(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Dat
         cb("load_hfr", 1.0, "Loaded from cache.")
         return result
 
-    cb("load_hfr", 0.0, f"Loading HFR from {config.hfr_path}...")
+    cb("load_hfr", 0.0, f"Opening HFR source {config.hfr_path}...")
     if config.hfr_path.startswith("s3://"):
         import s3fs
         fs = s3fs.S3FileSystem(anon=True)
-        with fs.open(config.hfr_path.replace("s3://", "")) as f:
-            hfr = xr.open_dataset(f, engine="h5netcdf").load()
+        f = fs.open(config.hfr_path.replace("s3://", ""))
+        src = xr.open_dataset(f, engine="h5netcdf")
     else:
-        hfr = xr.open_dataset(config.hfr_path, engine="netcdf4").load()
+        f = None
+        src = xr.open_dataset(config.hfr_path, engine="netcdf4")
+
+    try:
+        # Subset before loading — full-network HFR archives span a decade of
+        # hourly fields and must never be pulled into memory whole.
+        sub = src[["u", "v"]]
+        pad = 0.5
+        sub = sub.sel(
+            lat=_coord_slice(src, "lat", config.sw_corner[1] - pad, config.ne_corner[1] + pad),
+            lon=_coord_slice(src, "lon", config.sw_corner[0] - pad, config.ne_corner[0] + pad),
+        )
+        bounds = _swot_time_bounds(swot_regridded)
+        if bounds is not None:
+            sub = sub.sel(time=slice(bounds[0], bounds[1]))
+            cb("load_hfr", 0.02,
+               f"Subset to {str(bounds[0])[:10]} .. {str(bounds[1])[:10]}, "
+               f"{sub.sizes['lat']}×{sub.sizes['lon']} cells, {sub.sizes['time']} hours.")
+
+        nt, ny, nx = sub.sizes["time"], sub.sizes["lat"], sub.sizes["lon"]
+        est_gb = nt * ny * nx * 2 * 4 / 1e9
+        if est_gb > 32:
+            raise RuntimeError(
+                f"HFR subset would need {est_gb:.1f} GB ({nt} hours × {ny}×{nx} cells). "
+                + ("SWOT pass times were unavailable to narrow the time window — "
+                   "the SWOT data must carry per-pass time coords (rebuild it from "
+                   "raw granules rather than a preset pkl without timestamps)."
+                   if bounds is None else
+                   "Narrow the domain or cycle range.")
+            )
+        u = np.empty((nt, ny, nx), dtype="float32")
+        v = np.empty((nt, ny, nx), dtype="float32")
+        chunk = 744  # ~a month of hourly fields per read
+        for i in range(0, nt, chunk):
+            blk = sub.isel(time=slice(i, i + chunk)).transpose("time", "lat", "lon")
+            u[i:i + blk.sizes["time"]] = blk["u"].values
+            v[i:i + blk.sizes["time"]] = blk["v"].values
+            cb("load_hfr", min(0.98, 0.02 + 0.96 * (i + chunk) / nt),
+               f"Loaded {min(i + chunk, nt)}/{nt} hourly fields...")
+
+        hfr = xr.Dataset(
+            {"u": (("time", "lat", "lon"), u), "v": (("time", "lat", "lon"), v)},
+            coords={"time": sub["time"].values, "lat": sub["lat"].values, "lon": sub["lon"].values},
+        )
+    finally:
+        src.close()
+        if f is not None:
+            f.close()
+
     _save(hfr, cache_path)
-    cb("load_hfr", 1.0, "HFR loaded.")
+    cb("load_hfr", 1.0, f"HFR loaded ({hfr.nbytes / 1e9:.2f} GB in memory).")
     return hfr
 
 
@@ -357,29 +458,61 @@ def step_interp_hfr(
 
     from swotxai.data_utils import hfr_on_swot
 
-    cb("interp_hfr", 0.0, "Applying 24-hour rolling mean to HFR...")
-    hfr_rolling = hfr.rolling(time=24, center=True, min_periods=1).mean()
+    def _rolling_at(t):
+        """25-h centered rolling mean (standard HFR detiding filter) evaluated
+        at the hour nearest t.
+
+        Computed on a small time window instead of the whole record, so
+        full-network multi-GB HFR arrays never need a second in-memory copy."""
+        t0 = hfr["time"].sel(time=t, method="nearest").values
+        margin = np.timedelta64(31, "h")
+        sub = hfr.sel(time=slice(t0 - margin, t0 + margin))
+        return sub.rolling(time=25, center=True, min_periods=1).mean().sel(time=t0)
+
+    def _pass_time(orig_ds, regrid_ds):
+        """Pass timestamp: the original swath's, or the regridded dataset's
+        time coord when SWOT came from a preset pkl (no swath data)."""
+        try:
+            if orig_ds is not None:
+                return orig_ds["time"].values[0]
+        except Exception:
+            pass
+        try:
+            t = np.atleast_1d(regrid_ds.coords["time"].values).astype("datetime64[ns]")
+            t = t[~np.isnat(t)]
+            if len(t):
+                return t[0]
+        except Exception:
+            pass
+        return None
 
     keys = [t for t in swot_regridded if swot_regridded[t]]
     n = len(keys)
-    cb("interp_hfr", 0.01, f"Interpolating HFR onto {n} cycles...")
+    cb("interp_hfr", 0.01, f"Interpolating HFR onto {n} cycles (24-h rolling mean per pass)...")
 
     hfr_interp_data = {}
+    n_skipped_no_time = 0
     for i, t in enumerate(keys):
         cb("interp_hfr", (i + 1) / n, f"Cycle {t}  ({i + 1}/{n})")
         orig_list   = cycle_data.get(t, [])
         regrid_list = swot_regridded[t]
         interp_list = []
-        for orig_ds, regrid_ds in zip(orig_list, regrid_list):
-            if orig_ds is None or regrid_ds is None:
+        for j, regrid_ds in enumerate(regrid_list):
+            if regrid_ds is None:
                 continue
-            first_time  = orig_ds["time"].values[0]
-            hfr_at_time = hfr_rolling.sel(time=first_time, method="nearest")
-            result = hfr_on_swot(hfr_at_time, regrid_ds)
+            orig_ds = orig_list[j] if j < len(orig_list) else None
+            pass_time = _pass_time(orig_ds, regrid_ds)
+            if pass_time is None:
+                n_skipped_no_time += 1
+                continue
+            result = hfr_on_swot(_rolling_at(pass_time), regrid_ds)
             if result is not None:
                 interp_list.append(result)
         hfr_interp_data[t] = interp_list
 
+    if n_skipped_no_time:
+        cb("interp_hfr", 0.99,
+           f"WARNING: {n_skipped_no_time} passes had no timestamp and were skipped.")
     _save(hfr_interp_data, cache_path)
     cb("interp_hfr", 1.0, "HFR interpolation complete.")
     return hfr_interp_data

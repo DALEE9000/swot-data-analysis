@@ -37,11 +37,22 @@ dependencies = [
   "tqdm",
   "pillow",
   "streamlit>=1.35",
-  "imageio[ffmpeg]",
-  "lightgbm"
+  "plotly>=5",
+  "imageio[ffmpeg]"
 ]
 
 [project.optional-dependencies]
+# Random-forest backend (swotxai.models.rf). sklearn (core) is the CPU
+# fallback; lightgbm adds the GPU-capable backend. cuML must be installed
+# separately via RAPIDS.
+rf = [
+  "lightgbm"
+]
+# Neural-network backend (swotxai.models.ann). For a CUDA build of torch use:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126
+ann = [
+  "torch"
+]
 dev = [
   "ipykernel",
   "jupyterlab",
