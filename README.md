@@ -215,6 +215,12 @@ Key fields in `config.yaml`:
 
 ---
 
+## Data requirements for model runs
+
+See **[docs/model-data.md](docs/model-data.md)** for exactly which files each
+model run needs (per region × mission), what's optional, local-vs-S3
+resolution, sizes, and re-download commands.
+
 ## Region presets
 
 Thirteen pre-processed presets (defined in `src/swotxai/presets.py`) are available directly from the GUI — no local SWOT/HFR data needed:
