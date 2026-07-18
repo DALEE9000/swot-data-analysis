@@ -286,7 +286,11 @@ def rf_flattening_stencil(
     from numpy.lib.stride_tricks import sliding_window_view
 
     pad = k // 2
-    feature_stack = np.stack([swot_regridded[f].values for f in features], axis=0)
+    # float32 throughout: halves flattened-matrix memory (float64 OOM'd the
+    # pooled all-region run) with no metric impact for RF/ANN training
+    feature_stack = np.stack(
+        [swot_regridded[f].values for f in features], axis=0,
+    ).astype(np.float32, copy=False)
     feature_stack = np.pad(
         feature_stack,
         ((0, 0), (pad, pad), (pad, pad)),
@@ -305,8 +309,8 @@ def rf_flattening_stencil(
 
     col_names = [f"{f}_d{di}_{dj}" for f in features for di in range(k) for dj in range(k)]
     df = pd.DataFrame(X, columns=col_names)
-    y_u = pd.Series(y_u, name="u")
-    y_v = pd.Series(y_v, name="v")
+    y_u = pd.Series(np.asarray(y_u, dtype=np.float32), name="u")
+    y_v = pd.Series(np.asarray(y_v, dtype=np.float32), name="v")
 
     return {
         "df": df,

@@ -71,13 +71,20 @@ def run_multiregion(
 
         shared = run_shared_steps(rcfg, progress_cb=rcb, use_cache=use_cache)
         try:
-            flats[rid] = step_flatten(
+            flat = step_flatten(
                 rcfg, shared["hfr_interp_data"], shared["swot_features"],
                 rcb, use_cache,
             )
         finally:
             _cleanup_shared_cache(rcfg)
             shared.clear()
+        # training/evaluation only touch X_*/y_*; the full-grid "df" per pass
+        # (inference-only) is the dominant memory term across N regions — drop
+        # it from the in-memory copy (the on-disk flatten cache keeps it)
+        for items in flat.values():
+            for entry in items:
+                entry.pop("df", None)
+        flats[rid] = flat
 
     sigs = {r: _column_signature(f) for r, f in flats.items()}
     live = {r: s for r, s in sigs.items() if s is not None}
