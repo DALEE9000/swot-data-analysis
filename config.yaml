@@ -2,18 +2,24 @@
 # Copy this file and edit paths for your setup, then load it in the GUI sidebar.
 
 # ---------------------------------------------------------------------------
-# Data sources
+# Data sources — LOCAL repo mirrors (experiments/ mirrors s3://swot-ai-ssv 1:1).
+# Pre-built pkls load directly; raw-source fallbacks are only touched when a
+# pkl is missing (S3 fallbacks cost egress — see the cost rule in CLAUDE.md).
 # ---------------------------------------------------------------------------
+swot_pkl_path: "experiments/uswc/swot_cycles/swot_expert_reproc_v3_calval_uswc_474_578.pkl"
+hfr_pkl_path:  "experiments/uswc/hfr_target/hfr_calval_uswc.pkl"
+era5_pkl_path: "experiments/uswc/era5/era5wind_calval_uswc_10m.pkl"
+goes_nc_path:  "experiments/uswc/goes/goes_sst_calval_uswc.nc"
+# raw-source fallbacks (used only if the pkls above are missing):
 swot_path: "s3://swot-ai-ssv/SWOT_L3/calval/Expert_reproc_v3_uswc_calval"
-hfr_path: ""          # path to HFR netCDF (u, v velocity components)
-era5_pkl_path: "s3://swot-ai-ssv/experiments/uswc/era5/era5wind_2023_calval_uswc_isobaricinhPa1000.pkl"
-goes_nc_path: "s3://swot-ai-ssv/noaa-goes18/geographic_subsets/uswc/goes_sst_calval_uswc.nc"
+hfr_path:  "s3://swot-ai-ssv/HFR/uswc/uswc_6km_Resolution_hourly_2012_2024.nc4"
 
 # ---------------------------------------------------------------------------
-# Domain — bounding box [longitude, latitude]
+# Domain — bounding box [longitude, latitude] (full uswc network footprint)
 # ---------------------------------------------------------------------------
-sw_corner: [-127.0, 37.5]   # southwest corner [lon, lat]
-ne_corner:  [-123.0, 42.5]  # northeast corner  [lon, lat]
+sw_corner: [-126.8, 31.2]   # southwest corner [lon, lat]
+ne_corner:  [-116.6, 49.9]  # northeast corner  [lon, lat]
+region: "uswc"              # routes weights/inference into experiments/uswc/
 
 # ---------------------------------------------------------------------------
 # Mission phase

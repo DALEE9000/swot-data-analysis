@@ -124,8 +124,7 @@ def step_load_era5(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
     pkl_path = config.era5_pkl_path
     if use_cache and pkl_path:
         try:
-            cb("load_era5", 0.0, f"Loading ERA5 pkl from {pkl_path}...")
-            era5 = _load_s3_pkl(pkl_path) if pkl_path.startswith("s3://") else _load(Path(pkl_path))
+            era5 = _load_preset_pkl(pkl_path, cb, "load_era5")
             cb("load_era5", 1.0, "ERA5 loaded from pkl.")
             return era5
         except FileNotFoundError:
@@ -207,7 +206,15 @@ def step_load_goes(config: SWOTConfig, cb: ProgressCb, use_cache: bool) -> xr.Da
     goes_path_str = config.goes_nc_path
 
     if goes_path_str.startswith("s3://"):
-        cb("load_goes", 0.0, f"Loading GOES SST from S3: {goes_path_str}...")
+        # local mirror of the S3 layout beats streaming (see _load_preset_pkl)
+        mirror = Path(goes_path_str.replace("s3://swot-ai-ssv/", ""))
+        if mirror.exists():
+            cb("load_goes", 0.0, f"Loading GOES SST from local mirror {mirror}...")
+            goes_path_str = str(mirror)
+        else:
+            cb("load_goes", 0.0, f"Loading GOES SST from S3: {goes_path_str}...")
+
+    if goes_path_str.startswith("s3://"):
         if goes_path_str.endswith(".pkl"):
             ds_g = _load_s3_pkl(goes_path_str)
             if not isinstance(ds_g, xr.Dataset):
