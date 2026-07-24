@@ -1,0 +1,292 @@
+"""SWOTxAI evolve candidate.
+
+CONTRACT — the harness calls exactly this function; keep the signature:
+
+    train_and_predict(X_train, Y_train, X_test, params) -> np.ndarray
+
+  X_train : float32 (n_train, d) feature matrix; may contain NaN (stencil
+            padding at swath edges).
+  Y_train : float32 (n_train, 2) targets (u, v) in m/s; NaN marks an invalid
+            component (train on the valid entries only).
+  X_test  : float32 (n_test, d).
+  params  : dict with keys:
+              seed          - int, seed all RNGs with this
+              device        - "cuda" or "cpu"
+              max_epochs    - int, do not train longer than this many epochs
+              time_budget_s - float, soft wall-clock budget for training
+
+  Returns predictions for X_test, shape (n_test, 2), finite everywhere.
+
+Everything below the contract may be rewritten freely. Allowed imports:
+numpy, torch, math, random, time, copy, typing, dataclasses, collections,
+itertools, functools, warnings, sklearn, scipy. No file, network, or OS access.
+"""
+import copy
+import math
+import time
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+def _cells(d):
+    # Columns are k*k spatial-stencil copies of base features, feature-major.
+    for c in (9, 25, 49):
+        if d % c == 0:
+            return c
+    return 1
+
+
+def _standardize(X, mean, scale):
+    """Standardized values (NaN -> 0, i.e. the feature mean) and a per-column
+    validity mask. The mask is fed to the CNN as explicit channels, so the
+    network sees WHERE the stencil is padded instead of mistaking imputed
+    zeros for a calm ocean state."""
+    Xs = (X.astype(np.float32) - mean) / scale
+    M = np.isfinite(X).astype(np.float32)
+    Xs = np.nan_to_num(Xs, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
+    return Xs, M
+
+
+class StencilCNN(nn.Module):
+    """CNN over the k*k stencil with a heteroscedastic head.
+
+    Input per row: 2F channels of size k x k — F standardized feature planes
+    plus F validity-mask planes. Two conv stages (padded 3x3, then a valid
+    k x k that collapses to 1x1) learn oriented spatial-difference filters:
+    exactly the shear/divergence/front structure the flat MLP had to
+    approximate from hand-built stencil-std scalars. A center-cell shortcut
+    concatenates the raw standardized point features into the head so the
+    conv trunk never has to preserve point-wise values through blurring.
+
+    Heads:
+      mu     : (u, v) point predictions (what the harness scores)
+      logvar : per-row, per-component log aleatoric variance, training-loss
+               weighting only (proven in lineage).
+    """
+
+    def __init__(self, F, k, dropout=0.1, logvar_init=-3.5):
+        super().__init__()
+        kk1 = min(3, k)
+        pad1 = 1 if k >= 3 else 0
+        self.conv = nn.Sequential(
+            nn.Conv2d(2 * F, 64, kk1, padding=pad1),
+            nn.GroupNorm(8, 64), nn.SiLU(),
+            nn.Conv2d(64, 128, k),  # valid conv -> 1x1
+            nn.GroupNorm(8, 128), nn.SiLU(),
+        )
+        d = 128 + F  # conv embedding + center-cell shortcut
+        self.head = nn.Sequential(
+            nn.Linear(d, 128), nn.LayerNorm(128), nn.SiLU(), nn.Dropout(dropout),
+            nn.Linear(128, 128), nn.LayerNorm(128), nn.SiLU(), nn.Dropout(dropout),
+        )
+        self.mu = nn.Linear(128, 2)
+        self.logvar = nn.Linear(128, 2)
+        nn.init.zeros_(self.logvar.weight)
+        nn.init.constant_(self.logvar.bias, logvar_init)
+
+    def forward(self, img, center):
+        z = self.conv(img).flatten(1)
+        z = self.head(torch.cat([z, center], dim=1))
+        return self.mu(z), self.logvar(z)
+
+
+def _to_imgs(xb, mb_ch, F, k):
+    """Flat feature-major batch -> (b, 2F, k, k) image + (b, F) center cell."""
+    x = xb.view(-1, F, k, k)
+    m = mb_ch.view(-1, F, k, k)
+    img = torch.cat([x, m], dim=1)
+    center = xb.view(-1, F, k * k)[:, :, (k * k) // 2]
+    return img, center
+
+
+def _masked_nll(mu, logvar, target, mask):
+    logvar = logvar.clamp(-7.0, 2.0)
+    per = 0.5 * (logvar + (mu - target).pow(2) * torch.exp(-logvar))
+    return (per * mask).sum() / mask.sum().clamp(min=1)
+
+
+def _masked_mse(pred, target, mask):
+    diff = (pred - target) * mask
+    return diff.pow(2).sum() / mask.sum().clamp(min=1)
+
+
+def _train_member(member_seed, deadline, device, max_epochs, F, k,
+                  X_t, C_t, Y_t, M_t, X_v, C_v, Y_v, M_v,
+                  X_v_cpu, C_v_cpu, Y_v_cpu, M_v_cpu):
+    """One ensemble member: heteroscedastic NLL training, early stop on
+    temporal-val masked MSE of mu, then the proven recency fine-tune."""
+    torch.manual_seed(member_seed)
+    rng = np.random.default_rng(member_seed)
+
+    net = StencilCNN(F, k, dropout=0.1).to(device)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5)
+
+    bs = 4096
+    patience = 15
+    best_val = float("inf")
+    best_state = copy.deepcopy(net.state_dict())
+    best_epoch = 0
+    n_train = len(X_t)
+    out_of_time = False
+
+    for epoch in range(1, max_epochs + 1):
+        net.train()
+        order = torch.from_numpy(rng.permutation(n_train))
+        for bi, i in enumerate(range(0, n_train, bs)):
+            idx = order[i:i + bs]
+            xb, cb = X_t[idx].to(device), C_t[idx].to(device)
+            yb, mb = Y_t[idx].to(device), M_t[idx].to(device)
+            img, center = _to_imgs(xb, cb, F, k)
+            optimizer.zero_grad()
+            mu, lv = net(img, center)
+            loss = _masked_nll(mu, lv, yb, mb)
+            loss.backward()
+            optimizer.step()
+            # Conv trunk is slower per batch than the lineage MLP; check the
+            # wall clock mid-epoch so one long epoch can't blow the slice.
+            if bi % 200 == 0 and time.time() > deadline:
+                out_of_time = True
+                break
+        if out_of_time:
+            break
+
+        # Model selection and LR scheduling on masked MSE of mu — the scored
+        # quantity — NOT on the NLL, whose value mixes in the variance term.
+        net.eval()
+        with torch.no_grad():
+            val_losses = []
+            for i in range(0, len(X_v), bs):
+                img, center = _to_imgs(X_v[i:i + bs], C_v[i:i + bs], F, k)
+                mu, _ = net(img, center)
+                val_losses.append(_masked_mse(mu, Y_v[i:i + bs], M_v[i:i + bs]).item())
+            val_loss = float(np.mean(val_losses))
+        scheduler.step(val_loss)
+
+        if val_loss < best_val - 1e-7:
+            best_val = val_loss
+            best_state = copy.deepcopy(net.state_dict())
+            best_epoch = epoch
+
+        if epoch - best_epoch >= patience:
+            break
+        if time.time() > deadline:
+            break
+
+    net.load_state_dict(best_state)
+
+    # Recency fine-tune (proven in lineage, +~0.01): absorb the most recent —
+    # and hence most test-like — 10% of the training window with a short
+    # low-LR pass over the FULL window, same heteroscedastic NLL.
+    if time.time() < deadline and np.isfinite(best_val):
+        X_f = torch.cat([X_t, X_v_cpu])
+        C_f = torch.cat([C_t, C_v_cpu])
+        Y_f = torch.cat([Y_t, Y_v_cpu])
+        M_f = torch.cat([M_t, M_v_cpu])
+        ft_opt = torch.optim.AdamW(net.parameters(), lr=1e-4, weight_decay=1e-4)
+        n_all = len(X_f)
+        out_of_time = False
+        net.train()
+        for _ in range(2):
+            order = torch.from_numpy(rng.permutation(n_all))
+            for bi, i in enumerate(range(0, n_all, bs)):
+                idx = order[i:i + bs]
+                xb, cb = X_f[idx].to(device), C_f[idx].to(device)
+                yb, mb = Y_f[idx].to(device), M_f[idx].to(device)
+                img, center = _to_imgs(xb, cb, F, k)
+                ft_opt.zero_grad()
+                mu, lv = net(img, center)
+                loss = _masked_nll(mu, lv, yb, mb)
+                loss.backward()
+                ft_opt.step()
+                if bi % 100 == 0 and time.time() > deadline:
+                    out_of_time = True
+                    break
+            if out_of_time:
+                break
+
+    net.eval()
+    return net, best_val
+
+
+def train_and_predict(X_train, Y_train, X_test, params):
+    seed = int(params["seed"])
+    torch.manual_seed(seed)
+    device = torch.device(params["device"])
+    max_epochs = int(params["max_epochs"])
+    time_budget_s = float(params["time_budget_s"])
+    t0 = time.time()
+
+    # Per-column standardization ignoring NaNs; NaN -> 0 (the feature mean).
+    mean = np.nan_to_num(np.nanmean(X_train, axis=0), nan=0.0).astype(np.float32)
+    scale = np.nanstd(X_train, axis=0)
+    scale = np.where(np.isfinite(scale) & (scale > 1e-6), scale, 1.0).astype(np.float32)
+
+    n_cells = _cells(X_train.shape[1])
+    k = int(round(math.sqrt(n_cells)))
+    F = X_train.shape[1] // n_cells
+
+    Xs, Mch = _standardize(X_train, mean, scale)
+    mask = np.isfinite(Y_train).astype(np.float32)
+    Ys = np.nan_to_num(Y_train.astype(np.float32), nan=0.0)
+
+    # Temporal validation split: rows are time-ordered and the test set is a
+    # temporal holdout, so validating on the last 10% of the training window
+    # makes early stopping optimize forward-in-time generalization.
+    n = len(Xs)
+    n_val = max(1, int(n * 0.1))
+    train_idx = np.arange(0, n - n_val)
+    val_idx = np.arange(n - n_val, n)
+
+    X_t = torch.from_numpy(Xs[train_idx])
+    C_t = torch.from_numpy(Mch[train_idx])
+    Y_t = torch.from_numpy(Ys[train_idx])
+    M_t = torch.from_numpy(mask[train_idx])
+    # CPU copies of the validation tail for the post-selection fine-tune.
+    X_v_cpu = torch.from_numpy(Xs[val_idx])
+    C_v_cpu = torch.from_numpy(Mch[val_idx])
+    Y_v_cpu = torch.from_numpy(Ys[val_idx])
+    M_v_cpu = torch.from_numpy(mask[val_idx])
+    X_v, C_v = X_v_cpu.to(device), C_v_cpu.to(device)
+    Y_v, M_v = Y_v_cpu.to(device), M_v_cpu.to(device)
+    del Xs, Mch
+
+    # Two-seed deep ensemble with per-member wall-clock slices (proven
+    # plumbing). Member m must finish by 0.95*(m+1)/M of the budget.
+    M_ens = 2
+    members = []
+    for m in range(M_ens):
+        deadline = t0 + time_budget_s * 0.95 * (m + 1) / M_ens
+        if time.time() > deadline:
+            break
+        net, best_val = _train_member(
+            seed + 101 * m, deadline, device, max_epochs, F, k,
+            X_t, C_t, Y_t, M_t, X_v, C_v, Y_v, M_v,
+            X_v_cpu, C_v_cpu, Y_v_cpu, M_v_cpu)
+        members.append((net, best_val))
+
+    # Guard: drop members starved by a tight budget so the worst case
+    # degenerates to a single CNN instead of averaging in an undertrained net.
+    finite = [(net, v) for net, v in members if np.isfinite(v)]
+    if finite:
+        v_best = min(v for _, v in finite)
+        keep = [net for net, v in finite if v <= v_best * 1.15]
+    else:
+        keep = [members[0][0]]
+
+    # Predict in batches, averaging mu over accepted members.
+    out = np.zeros((len(X_test), 2), dtype=np.float32)
+    with torch.no_grad():
+        for i in range(0, len(X_test), 65536):
+            Xb, Mb = _standardize(X_test[i:i + 65536], mean, scale)
+            xb = torch.from_numpy(Xb).to(device)
+            cb = torch.from_numpy(Mb).to(device)
+            img, center = _to_imgs(xb, cb, F, k)
+            acc = torch.zeros((img.shape[0], 2), device=device)
+            for net in keep:
+                mu, _ = net(img, center)
+                acc += mu
+            out[i:i + 65536] = (acc / len(keep)).cpu().numpy()
+    return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)

@@ -53,6 +53,11 @@ rf = [
 ann = [
   "torch"
 ]
+# AlphaEvolve-style code evolution (swotxai.evolve + scripts/evolve.py).
+# Requires the ann extra too; the Claude API key stays in the parent process.
+evolve = [
+  "anthropic"
+]
 dev = [
   "ipykernel",
   "jupyterlab",

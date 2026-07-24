@@ -201,3 +201,14 @@ CLAUDE.md
 *.partial.pkl
 *.legacy_*
 
+########################################################################################
+# AlphaEvolve runs (experiments/evolve/): the research provenance stays PUBLIC —
+# candidate databases (ideas, metrics, lineage), run logs, state, and every
+# generated candidate.py. Only the heavy binary artifacts are ignored: the
+# frozen train/test arrays and per-candidate prediction dumps (regenerable).
+!/experiments/evolve/
+/experiments/evolve/**/data.npz
+/experiments/evolve/**/predictions.npz
+# re-include run logs past the global *.log rule (per-candidate stdout.log stays ignored)
+!/experiments/evolve/*/full_run.log
+

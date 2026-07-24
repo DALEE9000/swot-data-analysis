@@ -678,8 +678,8 @@ if run_btn and config_valid and not st.session_state.running:
 # ---------------------------------------------------------------------------
 # Main panel — three tabs
 # ---------------------------------------------------------------------------
-tab_pipeline, tab_results, tab_animation, tab_batch, tab_experiments = st.tabs(
-    ["Pipeline", "Results", "Animation", "Batch", "Experiments"]
+tab_pipeline, tab_results, tab_animation, tab_batch, tab_experiments, tab_evolve = st.tabs(
+    ["Pipeline", "Results", "Animation", "Batch", "Experiments", "Evolve"]
 )
 
 # ---- Tab 1: Pipeline progress ----
@@ -1557,3 +1557,343 @@ with tab_experiments:
                 )
                 st.plotly_chart(bar_fig, width="stretch", config=PLOTLY_CONFIG)
             st.json(detail, expanded=False)
+
+
+# ---- Tab 6: Evolve (read-only viewer; runs are driven by scripts/evolve.py) ----
+with tab_evolve:
+    import difflib
+    import json as _ejson
+    from pathlib import Path as _EPath
+
+    st.subheader("AlphaEvolve — LLM-guided code evolution")
+    st.caption(
+        "Claude proposes code mutations to the ANN training module; each candidate "
+        "trains locally in a sandboxed subprocess and is scored on a temporally "
+        "held-out split (fitness = mean R² of u and v). Launch below or via "
+        "`python scripts/evolve.py` — either way runs are detached, resumable "
+        "processes this tab monitors."
+    )
+
+    _evolve_root = _EPath("experiments") / "evolve"
+
+    def _load_evolve_state(run_dir):
+        p = run_dir / "state.json"
+        try:
+            return _ejson.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except Exception:
+            return {}
+
+    # ---- Launcher: spawns scripts/evolve.py as a DETACHED process ----------
+    with st.expander("🚀 Launch a new run (or resume/extend one)"):
+        st.caption(
+            "Detached process: keeps running if you close this app; re-launching "
+            "the same run name resumes it. Features/stencil are frozen into a "
+            "run's dataset at first launch — to change them, use a new name "
+            "(a new feature set or stencil recomputes the flatten cache, ~13 min/region)."
+        )
+        _lc1, _lc2 = st.columns(2)
+        with _lc1:
+            _ev_name = st.text_input(
+                "Run name", value=f"evolve_{time.strftime('%Y%m%d')}",
+                key="ev_launch_name", help="Letters/digits/_/- only. Existing name = resume.")
+            _ev_mut = st.selectbox(
+                "Mutator", ["claude-cli", "codex-cli", "claude-api", "mock"],
+                key="ev_launch_mut",
+                help="claude-cli/codex-cli run on your subscriptions ($0/token); "
+                     "claude-api bills per token and requires approval below; "
+                     "mock is a free hyperparameter jitterer for testing.")
+            _ev_cli_model = st.text_input(
+                "CLI model", value="claude-fable-5", key="ev_launch_cli_model",
+                help="Passed to `claude -p --model` / `codex exec -m`. "
+                     "Blank = the CLI's default model.")
+            from swotxai.presets import MISSION_REGIONS as _EV_MR
+            from swotxai.presets import REGION_META as _EV_RM
+            _domain_opts = ["config.yaml (as-is)"]
+            for _m in ("calval", "science"):
+                _domain_opts += [f"{_r} · {_m}" for _r in _EV_MR[_m]]
+            _domain_opts += ["pooled calval", "pooled science"]
+            _ev_domain = st.selectbox(
+                "Data domain", _domain_opts, key="ev_launch_domain",
+                help="Single region uses that region's preset paths/bbox/cycles "
+                     "(all local mirrors). Pooled = every trainable region of the "
+                     "mission, time-interleaved, with per-region metrics. Regions: "
+                     + "; ".join(f"{r} = {_EV_RM[r][0]}" for r in _EV_RM) + ".")
+        with _lc2:
+            _ev_feats = st.multiselect(
+                "Features", list(AVAILABLE_FEATURES), default=list(AVAILABLE_FEATURES),
+                key="ev_launch_feats")
+            _ev_k = st.select_slider("Stencil k", options=[1, 3, 5, 7], value=3,
+                                     key="ev_launch_k")
+            _ev_wild = st.slider("Wildcard every Nth candidate (0 = off)", 0, 10, 4,
+                                 key="ev_launch_wild",
+                                 help="Reserved slots where the LLM must try a "
+                                      "structurally different architecture.")
+        _n1, _n2, _n3, _n4 = st.columns(4)
+        _ev_gens = _n1.number_input("Generations", 1, 100, 10, key="ev_launch_gens")
+        _ev_children = _n2.number_input("Children/gen", 1, 16, 4, key="ev_launch_children")
+        _ev_epochs = _n3.number_input("Epoch cap", 5, 300, 60, key="ev_launch_epochs")
+        _ev_timeout = _n4.number_input("Timeout (min)", 5, 240, 30, key="ev_launch_timeout")
+
+        _api_ok = True
+        if _ev_mut == "claude-api":
+            from swotxai.evolve.mutator import PRICES as _EV_PRICES
+            from swotxai.evolve.mutator import estimate_cost_usd as _ev_est
+            _ev_api_model = st.selectbox("API model", sorted(_EV_PRICES),
+                                         index=sorted(_EV_PRICES).index("claude-opus-4-8"),
+                                         key="ev_launch_api_model")
+            _ev_budget = st.number_input("Hard budget cap (USD)", 1.0, 200.0, 10.0,
+                                         key="ev_launch_budget")
+            _est = _ev_est(_ev_api_model, int(_ev_gens) * int(_ev_children))
+            _api_ok = st.checkbox(
+                f"I approve an estimated ~${_est:.2f} of API spending "
+                f"(hard-capped at ${_ev_budget:.2f})",
+                key="ev_launch_api_approve")
+
+        if st.button("Launch / resume run", key="ev_launch_btn", type="primary"):
+            import re as _ere
+            import subprocess as _esub
+            import sys as _esys
+
+            _run_dir = _evolve_root / _ev_name
+            _state = _load_evolve_state(_run_dir) if (_run_dir / "state.json").exists() else {}
+            if not _ere.fullmatch(r"[A-Za-z0-9_-]+", _ev_name or ""):
+                st.error("Run name must be letters/digits/_/- only.")
+            elif not _ev_feats:
+                st.error("Select at least one feature.")
+            elif _state.get("running"):
+                st.error(f"'{_ev_name}' is already running — pick a different name, "
+                         "or wait for it to finish to resume/extend it.")
+            elif _ev_mut == "claude-api" and not _api_ok:
+                st.error("claude-api needs the cost-approval checkbox ticked.")
+            else:
+                _cmd = [_esys.executable, "scripts/evolve.py",
+                        "--name", _ev_name, "--mutator", _ev_mut,
+                        "--generations", str(int(_ev_gens)),
+                        "--children", str(int(_ev_children)),
+                        "--train-max-epochs", str(int(_ev_epochs)),
+                        "--timeout-min", str(int(_ev_timeout)),
+                        "--wildcard-every", str(int(_ev_wild)),
+                        "--features", ",".join(_ev_feats),
+                        "--stencil-k", str(int(_ev_k))]
+                if _ev_mut in ("claude-cli", "codex-cli") and _ev_cli_model.strip():
+                    _cmd += ["--cli-model", _ev_cli_model.strip()]
+                if _ev_mut == "claude-api":
+                    _cmd += ["--llm-model", _ev_api_model,
+                             "--budget-usd", str(float(_ev_budget)), "--yes"]
+                if _ev_domain.startswith("pooled "):
+                    _cmd += ["--pooled", _ev_domain.split()[-1]]
+                elif "·" in _ev_domain:
+                    _rid, _mis = (x.strip() for x in _ev_domain.split("·"))
+                    _cmd += ["--region", _rid, "--mission", _mis]
+
+                _run_dir.mkdir(parents=True, exist_ok=True)
+                _logf = open(_run_dir / "full_run.log", "a", encoding="utf-8")
+                _flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+                import os as _eos
+                _esub.Popen(_cmd, stdout=_logf, stderr=_esub.STDOUT,
+                            stdin=_esub.DEVNULL, creationflags=_flags,
+                            cwd=str(_EPath.cwd()),
+                            env={**_eos.environ, "PYTHONIOENCODING": "utf-8"})
+                _logf.close()
+                st.success(f"Launched `{' '.join(_cmd[1:])}` — it will appear below "
+                           "within ~1 min (log: "
+                           f"`{_run_dir / 'full_run.log'}`).")
+                time.sleep(1.5)
+                st.rerun()
+    _run_dirs = sorted(
+        [d for d in _evolve_root.glob("*") if (d / "database.jsonl").exists()],
+        key=lambda d: d.stat().st_mtime, reverse=True,
+    ) if _evolve_root.exists() else []
+
+    if not _run_dirs:
+        st.info(
+            "No evolve runs yet. Kick one off with:\n\n"
+            "```\npython scripts/evolve.py --config config.yaml --name evolve_v1 "
+            "--generations 10 --children 4 --budget-usd 10\n```\n"
+            "Add `--mock-llm` for a free smoke test (no API calls)."
+        )
+    else:
+        _run_name = st.selectbox("Evolve run", [d.name for d in _run_dirs], key="evolve_run_select")
+        _run_dir = _evolve_root / _run_name
+
+        _evolve_running = bool(_load_evolve_state(_run_dir).get("running"))
+        _evolve_refresh = 5 if _evolve_running else None
+
+        @st.fragment(run_every=_evolve_refresh)
+        def _evolve_view(run_dir=_run_dir):
+            records = []
+            try:
+                with open(run_dir / "database.jsonl", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            records.append(_ejson.loads(line))
+            except OSError:
+                pass
+            state = _load_evolve_state(run_dir)
+
+            if not records:
+                st.info("Run directory exists but no candidates recorded yet.")
+                return
+
+            ok = [r for r in records if r.get("status") == "ok" and r.get("fitness") is not None]
+            best = max(ok, key=lambda r: r["fitness"]) if ok else None
+            spent = sum((r.get("llm") or {}).get("cost_usd", 0.0) for r in records)
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Candidates", f"{len(records)} ({len(ok)} ok)")
+            c2.metric("Best fitness", f"{best['fitness']:.4f}" if best else "—",
+                      help="Mean of held-out R²(u) and R²(v)")
+            c3.metric("API spent", f"${spent:.2f}",
+                      help=f"Budget cap ${((state.get('settings') or {}).get('budget_usd', 0)):.2f}")
+            c4.metric("Status", "RUNNING" if state.get("running") else "idle")
+
+            # Fitness trajectory: chronological scatter colored by generation,
+            # with the best-so-far envelope.
+            import plotly.graph_objects as _ego
+            xs, ys, gens, ids = [], [], [], []
+            best_so_far, running_best = [], None
+            for i, r in enumerate(records):
+                fit = r.get("fitness")
+                if fit is not None:
+                    xs.append(i); ys.append(fit)
+                    gens.append(r.get("generation", 0)); ids.append(r.get("candidate_id"))
+                    running_best = fit if running_best is None else max(running_best, fit)
+                if running_best is not None:
+                    best_so_far.append((i, running_best))
+            fig = _ego.Figure()
+            if best_so_far:
+                fig.add_trace(_ego.Scatter(
+                    x=[p[0] for p in best_so_far], y=[p[1] for p in best_so_far],
+                    mode="lines", name="best so far",
+                    line=dict(width=2, dash="dot", color=PLOTLY_THEME["accent"]),
+                ))
+            fig.add_trace(_ego.Scatter(
+                x=xs, y=ys, mode="markers", name="candidates", text=ids,
+                marker=dict(size=9, color=gens, colorscale="Viridis", showscale=True,
+                            colorbar=dict(title="gen")),
+                hovertemplate="%{text}<br>fitness %{y:.4f}<extra></extra>",
+            ))
+            fig.update_layout(
+                height=360,
+                margin=dict(l=10, r=10, t=30, b=10),
+                paper_bgcolor=PLOTLY_THEME["surface"],
+                plot_bgcolor=PLOTLY_THEME["surface"],
+                font=dict(color=PLOTLY_THEME["ink"]),
+                xaxis=dict(title="candidate (chronological)",
+                           gridcolor=PLOTLY_THEME["grid"], zerolinecolor=PLOTLY_THEME["grid"]),
+                yaxis=dict(title="fitness (mean R²)",
+                           gridcolor=PLOTLY_THEME["grid"], zerolinecolor=PLOTLY_THEME["grid"]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            )
+            st.plotly_chart(fig, width="stretch", config=PLOTLY_CONFIG)
+
+            rows = [{
+                "ID": r.get("candidate_id"),
+                "Gen": r.get("generation"),
+                "Parent": r.get("parent_id") or "—",
+                "Status": r.get("status"),
+                "Fitness": round(r["fitness"], 4) if r.get("fitness") is not None else None,
+                "R² u": round((r.get("metrics") or {}).get("r2_u", float("nan")), 4)
+                        if r.get("metrics") else None,
+                "R² v": round((r.get("metrics") or {}).get("r2_v", float("nan")), 4)
+                        if r.get("metrics") else None,
+                "Train s": r.get("train_seconds"),
+                "LLM $": (r.get("llm") or {}).get("cost_usd", 0.0),
+                "Idea": (r.get("idea") or "")[:160],
+            } for r in records]
+            st.dataframe(rows, width="stretch", height=280)
+
+            st.divider()
+            st.subheader("Candidate detail")
+            sel_id = st.selectbox(
+                "Candidate",
+                options=[r["candidate_id"] for r in reversed(records)],
+                key=f"evolve_detail_{run_dir.name}",
+            )
+            rec = next((r for r in records if r["candidate_id"] == sel_id), None)
+            if rec:
+                if rec.get("idea"):
+                    st.markdown(f"**Idea:** {rec['idea']}")
+                if rec.get("error"):
+                    st.error(rec["error"])
+                code_path = run_dir / "candidates" / sel_id / "candidate.py"
+                code = code_path.read_text(encoding="utf-8") if code_path.exists() else ""
+
+                # Auto-detected architecture summary + flow diagram.
+                if code:
+                    from swotxai.evolve.inspect import architecture_dot, summarize_candidate
+
+                    meta_path = run_dir / "data_meta.json"
+                    try:
+                        _dmeta = _ejson.loads(meta_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        _dmeta = {}
+                    _n_inputs = _dmeta.get("n_inputs")
+                    summ = summarize_candidate(code)
+                    col_sum, col_dia = st.columns([1, 1])
+                    with col_sum:
+                        st.markdown("**Auto-detected model summary** "
+                                    ":gray[(heuristic — the diff is ground truth)]")
+                        if summ["hyperparams"]:
+                            st.table([{"Hyperparameter": k, "Value": v}
+                                      for k, v in summ["hyperparams"].items()])
+                        comp_lines = []
+                        for cat, label in (("structure", "Structure"),
+                                           ("features", "Feature engineering"),
+                                           ("training", "Training")):
+                            if summ["components"][cat]:
+                                comp_lines.append(f"**{label}:** " + "; ".join(summ["components"][cat]))
+                        if comp_lines:
+                            st.markdown("\n\n".join(comp_lines))
+                        st.caption(f"{summ['loc']} lines of code · "
+                                   f"train {rec.get('train_seconds') or '?'}s · "
+                                   f"proposer {(rec.get('llm') or {}).get('model', '—')}")
+
+                        # Fixed run context every candidate shares (frozen data
+                        # + harness params) — not evolvable, shown for grounding.
+                        _sset = state.get("settings") or {}
+                        _ctx = {
+                            "mission": _dmeta.get("mission"),
+                            "region(s)": ", ".join(_dmeta["regions"]) if _dmeta.get("regions")
+                                         else _dmeta.get("region"),
+                            "cycles": (f"{_dmeta.get('cycles_start')}–{_dmeta.get('cycles_end')}"
+                                       if _dmeta.get("cycles_start") is not None else None),
+                            "stencil k": _dmeta.get("stencil_k"),
+                            "features": ", ".join(_dmeta.get("features") or []) or None,
+                            "inputs": (f"{_dmeta.get('n_inputs')} cols "
+                                       f"({len(_dmeta.get('features') or [])} features x k²)"
+                                       if _dmeta.get("n_inputs") else None),
+                            "rows": (f"{_dmeta.get('n_train'):,} train / {_dmeta.get('n_test'):,} "
+                                     "test (temporal holdout)"
+                                     if _dmeta.get("n_train") else None),
+                            "train fraction": _dmeta.get("train_fraction"),
+                            "epoch cap": _sset.get("train_max_epochs"),
+                            "timeout (min)": _sset.get("timeout_min"),
+                            "harness seed": _sset.get("seed"),
+                        }
+                        with st.expander("Run configuration (fixed for all candidates)"):
+                            st.table([{"Setting": k, "Value": str(v)}
+                                      for k, v in _ctx.items() if v is not None])
+                        if isinstance((rec.get("metrics") or {}).get("per_region"), dict):
+                            st.markdown("**Per-region held-out R² (u / v):** " + " · ".join(
+                                f"{rid} {m.get('r2_u', float('nan')):.2f}/{m.get('r2_v', float('nan')):.2f}"
+                                for rid, m in rec["metrics"]["per_region"].items()))
+                    with col_dia:
+                        st.graphviz_chart(architecture_dot(summ, _n_inputs, PLOTLY_THEME),
+                                          width="stretch")
+                parent_id = rec.get("parent_id")
+                if parent_id:
+                    parent_path = run_dir / "candidates" / parent_id / "candidate.py"
+                    if parent_path.exists() and code:
+                        diff = "\n".join(difflib.unified_diff(
+                            parent_path.read_text(encoding="utf-8").splitlines(),
+                            code.splitlines(),
+                            fromfile=parent_id, tofile=sel_id, lineterm="",
+                        ))
+                        with st.expander(f"Diff vs parent ({parent_id})", expanded=True):
+                            st.code(diff or "(identical)", language="diff")
+                if code:
+                    with st.expander("Full candidate code", expanded=False):
+                        st.code(code, language="python")
+
+        _evolve_view()

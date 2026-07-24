@@ -1,0 +1,493 @@
+[22:48:12] claude-cli: $0.00 per-token cost � runs on your existing Claude subscription (counts toward its usage limits; ~140 agent calls planned).
+[22:48:12] Preparing pooled science arrays (all trainable regions, cached/local)...
+[load_swot] [uswc 1/6] Starting load_swot (preset)...
+[regrid] [uswc 1/6] Starting regrid (preset)...
+[load_swot] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\swot_cycles\swot_expert_reproc_v3_uswc_science.pkl...
+[load_swot] [uswc 1/6] Loaded 16 cycles.
+[regrid] [uswc 1/6] Skipped � using preset pkl.
+[load_swot] [uswc 1/6] load_swot done
+[regrid] [uswc 1/6] regrid done
+[load_era5] [uswc 1/6] Starting load_era5...
+[load_era5] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\era5\era5wind_science_uswc_10m.pkl...
+[load_era5] [uswc 1/6] ERA5 loaded from pkl.
+[load_era5] [uswc 1/6] load_era5 done in 0.7s
+[load_goes] [uswc 1/6] Starting load_goes...
+[load_goes] [uswc 1/6] SST not in features � skipping GOES load.
+[load_goes] [uswc 1/6] load_goes done in 0.0s
+[interp_sources] [uswc 1/6] Starting interp_sources...
+[interp_sources] [uswc 1/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:   6%|6         | 1/16 [00:00<00:10,  1.39step/s]interp_to_swot:  12%|#2        | 2/16 [00:01<00:08,  1.56step/s]interp_to_swot:  19%|#8        | 3/16 [00:01<00:08,  1.55step/s]interp_to_swot:  25%|##5       | 4/16 [00:02<00:06,  1.76step/s]interp_to_swot:  31%|###1      | 5/16 [00:03<00:06,  1.66step/s]interp_to_swot:  38%|###7      | 6/16 [00:03<00:06,  1.53step/s]interp_to_swot:  44%|####3     | 7/16 [00:04<00:06,  1.34step/s]interp_to_swot:  50%|#####     | 8/16 [00:05<00:05,  1.55step/s]interp_to_swot:  56%|#####6    | 9/16 [00:05<00:04,  1.57step/s]interp_to_swot:  62%|######2   | 10/16 [00:06<00:03,  1.58step/s]interp_to_swot:  69%|######8   | 11/16 [00:07<00:03,  1.58step/s]interp_to_swot:  75%|#######5  | 12/16 [00:07<00:02,  1.64step/s]interp_to_swot:  81%|########1 | 13/16 [00:08<00:01,  1.65step/s]interp_to_swot:  88%|########7 | 14/16 [00:08<00:01,  1.64step/s]interp_to_swot:  94%|#########3| 15/16 [00:09<00:00,  1.60step/s]interp_to_swot: 100%|##########| 16/16 [00:10<00:00,  1.58step/s]interp_to_swot: 100%|##########| 16/16 [00:10<00:00,  1.58step/s]
+[interp_sources] [uswc 1/6] Interpolation complete.
+[interp_sources] [uswc 1/6] interp_sources done in 34.2s
+[load_hfr] [uswc 1/6] Starting load_hfr (preset)...
+[interp_hfr] [uswc 1/6] Starting interp_hfr (preset)...
+[load_hfr] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\hfr_target\hfr_science_uswc.pkl...
+[load_hfr] [uswc 1/6] Loaded preset HFR.
+[interp_hfr] [uswc 1/6] Skipped � using preset pkl.
+[load_hfr] [uswc 1/6] load_hfr done
+[interp_hfr] [uswc 1/6] interp_hfr done
+[flatten] [uswc 1/6] Loading flattened data from cache...
+[flatten] [uswc 1/6] Loaded from cache.
+[load_swot] [usegc 2/6] Starting load_swot (preset)...
+[regrid] [usegc 2/6] Starting regrid (preset)...
+[load_swot] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\swot_cycles\swot_expert_reproc_v3_usegc_science.pkl...
+[load_swot] [usegc 2/6] Loaded 16 cycles.
+[regrid] [usegc 2/6] Skipped � using preset pkl.
+[load_swot] [usegc 2/6] load_swot done
+[regrid] [usegc 2/6] regrid done
+[load_era5] [usegc 2/6] Starting load_era5...
+[load_era5] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\era5\era5wind_science_usegc_10m.pkl...
+[load_era5] [usegc 2/6] ERA5 loaded from pkl.
+[load_era5] [usegc 2/6] load_era5 done in 2.0s
+[load_goes] [usegc 2/6] Starting load_goes...
+[load_goes] [usegc 2/6] SST not in features � skipping GOES load.
+[load_goes] [usegc 2/6] load_goes done in 0.0s
+[interp_sources] [usegc 2/6] Starting interp_sources...
+[interp_sources] [usegc 2/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:   6%|6         | 1/16 [00:01<00:16,  1.07s/step]interp_to_swot:  12%|#2        | 2/16 [00:02<00:19,  1.40s/step]interp_to_swot:  19%|#8        | 3/16 [00:04<00:19,  1.51s/step]interp_to_swot:  25%|##5       | 4/16 [00:05<00:16,  1.39s/step]interp_to_swot:  31%|###1      | 5/16 [00:07<00:16,  1.48s/step]interp_to_swot:  38%|###7      | 6/16 [00:08<00:15,  1.51s/step]interp_to_swot:  44%|####3     | 7/16 [00:10<00:14,  1.56s/step]interp_to_swot:  50%|#####     | 8/16 [00:11<00:11,  1.42s/step]interp_to_swot:  56%|#####6    | 9/16 [00:13<00:10,  1.47s/step]interp_to_swot:  62%|######2   | 10/16 [00:14<00:09,  1.51s/step]interp_to_swot:  69%|######8   | 11/16 [00:16<00:07,  1.55s/step]interp_to_swot:  75%|#######5  | 12/16 [00:17<00:06,  1.54s/step]interp_to_swot:  81%|########1 | 13/16 [00:19<00:04,  1.56s/step]interp_to_swot:  88%|########7 | 14/16 [00:21<00:03,  1.58s/step]interp_to_swot:  94%|#########3| 15/16 [00:22<00:01,  1.55s/step]interp_to_swot: 100%|##########| 16/16 [00:24<00:00,  1.56s/step]interp_to_swot: 100%|##########| 16/16 [00:24<00:00,  1.51s/step]
+[interp_sources] [usegc 2/6] Interpolation complete.
+[interp_sources] [usegc 2/6] interp_sources done in 71.6s
+[load_hfr] [usegc 2/6] Starting load_hfr (preset)...
+[interp_hfr] [usegc 2/6] Starting interp_hfr (preset)...
+[load_hfr] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\hfr_target\hfr_science_usegc.pkl...
+[load_hfr] [usegc 2/6] Loaded preset HFR.
+[interp_hfr] [usegc 2/6] Skipped � using preset pkl.
+[load_hfr] [usegc 2/6] load_hfr done
+[interp_hfr] [usegc 2/6] interp_hfr done
+[flatten] [usegc 2/6] Loading flattened data from cache...
+[flatten] [usegc 2/6] Loaded from cache.
+[load_swot] [gak 3/6] Starting load_swot (preset)...
+[regrid] [gak 3/6] Starting regrid (preset)...
+[load_swot] [gak 3/6] Loading preset pkl from local mirror experiments\gak\swot_cycles\swot_expert_reproc_v3_gak_science.pkl...
+[load_swot] [gak 3/6] Loaded 16 cycles.
+[regrid] [gak 3/6] Skipped � using preset pkl.
+[load_swot] [gak 3/6] load_swot done
+[regrid] [gak 3/6] regrid done
+[load_era5] [gak 3/6] Starting load_era5...
+[load_era5] [gak 3/6] Loading preset pkl from local mirror experiments\gak\era5\era5wind_science_gak_10m.pkl...
+[load_era5] [gak 3/6] ERA5 loaded from pkl.
+[load_era5] [gak 3/6] load_era5 done in 0.0s
+[load_goes] [gak 3/6] Starting load_goes...
+[load_goes] [gak 3/6] SST not in features � skipping GOES load.
+[load_goes] [gak 3/6] load_goes done in 0.0s
+[interp_sources] [gak 3/6] Starting interp_sources...
+[interp_sources] [gak 3/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:  12%|#2        | 2/16 [00:00<00:00, 17.62step/s]interp_to_swot:  31%|###1      | 5/16 [00:00<00:00, 19.52step/s]interp_to_swot:  44%|####3     | 7/16 [00:00<00:00, 19.53step/s]interp_to_swot:  62%|######2   | 10/16 [00:00<00:00, 20.23step/s]interp_to_swot:  81%|########1 | 13/16 [00:00<00:00, 19.85step/s]interp_to_swot: 100%|##########| 16/16 [00:00<00:00, 20.69step/s]interp_to_swot: 100%|##########| 16/16 [00:00<00:00, 20.16step/s]
+[interp_sources] [gak 3/6] Interpolation complete.
+[interp_sources] [gak 3/6] interp_sources done in 0.9s
+[load_hfr] [gak 3/6] Starting load_hfr (preset)...
+[interp_hfr] [gak 3/6] Starting interp_hfr (preset)...
+[load_hfr] [gak 3/6] Loading preset pkl from local mirror experiments\gak\hfr_target\hfr_science_gak.pkl...
+[load_hfr] [gak 3/6] Loaded preset HFR.
+[interp_hfr] [gak 3/6] Skipped � using preset pkl.
+[load_hfr] [gak 3/6] load_hfr done
+[interp_hfr] [gak 3/6] interp_hfr done
+Traceback (most recent call last):
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\scripts\evolve.py", line 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\scripts\evolve.py", line 167, in main
+    data_npz = prepare_pooled_data(config, args.pooled, run_dir)
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\src\swotxai\evolve\harness.py", line 105, in prepare_pooled_data
+    flat = step_flatten(rcfg, shared["hfr_interp_data"],
+                        shared["swot_features"], rcb, True)
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\src\swotxai\pipeline\steps_ml.py", line 78, in step_flatten
+    cb("flatten", 0.0,
+    ~~^^^^^^^^^^^^^^^^
+       f"Flattening {n} cycles (stencil k={config.stencil_k}, {len(effective_features)} features \u2192 {expected_n_cols} cols)...")
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\src\swotxai\evolve\harness.py", line 102, in <lambda>
+    cb(step, frac, f"[{_r} {_i + 1}/{len(regions)}] {msg}"))
+    ~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\src\swotxai\evolve\harness.py", line 94, in <lambda>
+    cb = progress_cb or (lambda step, frac, msg: print(f"[{step}] {msg}"))
+                                                 ~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david\anaconda3\envs\swotopentoolkit\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 66: character maps to <undefined>
+[23:15:29] claude-cli: $0.00 per-token cost — runs on your existing Claude subscription (counts toward its usage limits; ~140 agent calls planned).
+[23:15:29] Preparing pooled science arrays (all trainable regions, cached/local)...
+[load_swot] [uswc 1/6] Starting load_swot (preset)...
+[regrid] [uswc 1/6] Starting regrid (preset)...
+[load_swot] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\swot_cycles\swot_expert_reproc_v3_uswc_science.pkl...
+[load_swot] [uswc 1/6] Loaded 16 cycles.
+[regrid] [uswc 1/6] Skipped — using preset pkl.
+[load_swot] [uswc 1/6] load_swot done
+[regrid] [uswc 1/6] regrid done
+[load_era5] [uswc 1/6] Starting load_era5...
+[load_era5] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\era5\era5wind_science_uswc_10m.pkl...
+[load_era5] [uswc 1/6] ERA5 loaded from pkl.
+[load_era5] [uswc 1/6] load_era5 done in 0.6s
+[load_goes] [uswc 1/6] Starting load_goes...
+[load_goes] [uswc 1/6] SST not in features — skipping GOES load.
+[load_goes] [uswc 1/6] load_goes done in 0.0s
+[interp_sources] [uswc 1/6] Starting interp_sources...
+[interp_sources] [uswc 1/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:   6%|▋         | 1/16 [00:01<00:15,  1.01s/step]interp_to_swot:  12%|█▎        | 2/16 [00:01<00:13,  1.01step/s]interp_to_swot:  19%|█▉        | 3/16 [00:02<00:12,  1.05step/s]interp_to_swot:  25%|██▌       | 4/16 [00:03<00:10,  1.17step/s]interp_to_swot:  31%|███▏      | 5/16 [00:04<00:09,  1.13step/s]interp_to_swot:  38%|███▊      | 6/16 [00:05<00:09,  1.11step/s]interp_to_swot:  44%|████▍     | 7/16 [00:06<00:08,  1.09step/s]interp_to_swot:  50%|█████     | 8/16 [00:07<00:06,  1.20step/s]interp_to_swot:  56%|█████▋    | 9/16 [00:08<00:06,  1.10step/s]interp_to_swot:  62%|██████▎   | 10/16 [00:09<00:05,  1.04step/s]interp_to_swot:  69%|██████▉   | 11/16 [00:10<00:04,  1.07step/s]interp_to_swot:  75%|███████▌  | 12/16 [00:10<00:03,  1.08step/s]interp_to_swot:  81%|████████▏ | 13/16 [00:11<00:02,  1.08step/s]interp_to_swot:  88%|████████▊ | 14/16 [00:12<00:01,  1.10step/s]interp_to_swot:  94%|█████████▍| 15/16 [00:13<00:00,  1.15step/s]interp_to_swot: 100%|██████████| 16/16 [00:14<00:00,  1.16step/s]interp_to_swot: 100%|██████████| 16/16 [00:14<00:00,  1.11step/s]
+[interp_sources] [uswc 1/6] Interpolation complete.
+[interp_sources] [uswc 1/6] interp_sources done in 28.7s
+[load_hfr] [uswc 1/6] Starting load_hfr (preset)...
+[interp_hfr] [uswc 1/6] Starting interp_hfr (preset)...
+[load_hfr] [uswc 1/6] Loading preset pkl from local mirror experiments\uswc\hfr_target\hfr_science_uswc.pkl...
+[load_hfr] [uswc 1/6] Loaded preset HFR.
+[interp_hfr] [uswc 1/6] Skipped — using preset pkl.
+[load_hfr] [uswc 1/6] load_hfr done
+[interp_hfr] [uswc 1/6] interp_hfr done
+[flatten] [uswc 1/6] Loading flattened data from cache...
+[flatten] [uswc 1/6] Loaded from cache.
+[load_swot] [usegc 2/6] Starting load_swot (preset)...
+[regrid] [usegc 2/6] Starting regrid (preset)...
+[load_swot] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\swot_cycles\swot_expert_reproc_v3_usegc_science.pkl...
+[load_swot] [usegc 2/6] Loaded 16 cycles.
+[regrid] [usegc 2/6] Skipped — using preset pkl.
+[load_swot] [usegc 2/6] load_swot done
+[regrid] [usegc 2/6] regrid done
+[load_era5] [usegc 2/6] Starting load_era5...
+[load_era5] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\era5\era5wind_science_usegc_10m.pkl...
+[load_era5] [usegc 2/6] ERA5 loaded from pkl.
+[load_era5] [usegc 2/6] load_era5 done in 2.0s
+[load_goes] [usegc 2/6] Starting load_goes...
+[load_goes] [usegc 2/6] SST not in features — skipping GOES load.
+[load_goes] [usegc 2/6] load_goes done in 0.0s
+[interp_sources] [usegc 2/6] Starting interp_sources...
+[interp_sources] [usegc 2/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:   6%|▋         | 1/16 [00:01<00:23,  1.55s/step]interp_to_swot:  12%|█▎        | 2/16 [00:04<00:30,  2.16s/step]interp_to_swot:  19%|█▉        | 3/16 [00:06<00:29,  2.30s/step]interp_to_swot:  25%|██▌       | 4/16 [00:08<00:26,  2.17s/step]interp_to_swot:  31%|███▏      | 5/16 [00:11<00:26,  2.36s/step]interp_to_swot:  38%|███▊      | 6/16 [00:13<00:24,  2.47s/step]interp_to_swot:  44%|████▍     | 7/16 [00:16<00:22,  2.55s/step]interp_to_swot:  50%|█████     | 8/16 [00:18<00:19,  2.46s/step]interp_to_swot:  56%|█████▋    | 9/16 [00:21<00:17,  2.56s/step]interp_to_swot:  62%|██████▎   | 10/16 [00:24<00:15,  2.59s/step]interp_to_swot:  69%|██████▉   | 11/16 [00:27<00:13,  2.62s/step]interp_to_swot:  75%|███████▌  | 12/16 [00:29<00:10,  2.64s/step]interp_to_swot:  81%|████████▏ | 13/16 [00:32<00:08,  2.67s/step]interp_to_swot:  88%|████████▊ | 14/16 [00:35<00:05,  2.66s/step]interp_to_swot:  94%|█████████▍| 15/16 [00:37<00:02,  2.61s/step]interp_to_swot: 100%|██████████| 16/16 [00:40<00:00,  2.69s/step]interp_to_swot: 100%|██████████| 16/16 [00:40<00:00,  2.53s/step]
+[interp_sources] [usegc 2/6] Interpolation complete.
+[interp_sources] [usegc 2/6] interp_sources done in 65.6s
+[load_hfr] [usegc 2/6] Starting load_hfr (preset)...
+[interp_hfr] [usegc 2/6] Starting interp_hfr (preset)...
+[load_hfr] [usegc 2/6] Loading preset pkl from local mirror experiments\usegc\hfr_target\hfr_science_usegc.pkl...
+[load_hfr] [usegc 2/6] Loaded preset HFR.
+[interp_hfr] [usegc 2/6] Skipped — using preset pkl.
+[load_hfr] [usegc 2/6] load_hfr done
+[interp_hfr] [usegc 2/6] interp_hfr done
+[flatten] [usegc 2/6] Loading flattened data from cache...
+[flatten] [usegc 2/6] Loaded from cache.
+[load_swot] [gak 3/6] Starting load_swot (preset)...
+[regrid] [gak 3/6] Starting regrid (preset)...
+[load_swot] [gak 3/6] Loading preset pkl from local mirror experiments\gak\swot_cycles\swot_expert_reproc_v3_gak_science.pkl...
+[load_swot] [gak 3/6] Loaded 16 cycles.
+[regrid] [gak 3/6] Skipped — using preset pkl.
+[load_swot] [gak 3/6] load_swot done
+[regrid] [gak 3/6] regrid done
+[load_era5] [gak 3/6] Starting load_era5...
+[load_era5] [gak 3/6] Loading preset pkl from local mirror experiments\gak\era5\era5wind_science_gak_10m.pkl...
+[load_era5] [gak 3/6] ERA5 loaded from pkl.
+[load_era5] [gak 3/6] load_era5 done in 0.0s
+[load_goes] [gak 3/6] Starting load_goes...
+[load_goes] [gak 3/6] SST not in features — skipping GOES load.
+[load_goes] [gak 3/6] load_goes done in 0.0s
+[interp_sources] [gak 3/6] Starting interp_sources...
+[interp_sources] [gak 3/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:  12%|█▎        | 2/16 [00:00<00:01, 12.09step/s]interp_to_swot:  25%|██▌       | 4/16 [00:00<00:00, 12.90step/s]interp_to_swot:  38%|███▊      | 6/16 [00:00<00:00, 11.88step/s]interp_to_swot:  50%|█████     | 8/16 [00:00<00:00, 12.44step/s]interp_to_swot:  62%|██████▎   | 10/16 [00:00<00:00, 11.56step/s]interp_to_swot:  75%|███████▌  | 12/16 [00:01<00:00, 11.48step/s]interp_to_swot:  88%|████████▊ | 14/16 [00:01<00:00, 11.71step/s]interp_to_swot: 100%|██████████| 16/16 [00:01<00:00, 11.14step/s]interp_to_swot: 100%|██████████| 16/16 [00:01<00:00, 11.59step/s]
+[interp_sources] [gak 3/6] Interpolation complete.
+[interp_sources] [gak 3/6] interp_sources done in 1.6s
+[load_hfr] [gak 3/6] Starting load_hfr (preset)...
+[interp_hfr] [gak 3/6] Starting interp_hfr (preset)...
+[load_hfr] [gak 3/6] Loading preset pkl from local mirror experiments\gak\hfr_target\hfr_science_gak.pkl...
+[load_hfr] [gak 3/6] Loaded preset HFR.
+[interp_hfr] [gak 3/6] Skipped — using preset pkl.
+[load_hfr] [gak 3/6] load_hfr done
+[interp_hfr] [gak 3/6] interp_hfr done
+[flatten] [gak 3/6] Flattening 16 cycles (stencil k=3, 8 features → 72 cols)...
+[flatten] [gak 3/6] Cycle 001  (1/16)
+[flatten] [gak 3/6] Cycle 002  (2/16)
+[flatten] [gak 3/6] Cycle 003  (3/16)
+[flatten] [gak 3/6] Cycle 004  (4/16)
+[flatten] [gak 3/6] Cycle 005  (5/16)
+[flatten] [gak 3/6] Cycle 006  (6/16)
+[flatten] [gak 3/6] Cycle 007  (7/16)
+[flatten] [gak 3/6] Cycle 008  (8/16)
+[flatten] [gak 3/6] Cycle 009  (9/16)
+[flatten] [gak 3/6] Cycle 010  (10/16)
+[flatten] [gak 3/6] Cycle 011  (11/16)
+[flatten] [gak 3/6] Cycle 012  (12/16)
+[flatten] [gak 3/6] Cycle 013  (13/16)
+[flatten] [gak 3/6] Cycle 014  (14/16)
+[flatten] [gak 3/6] Cycle 015  (15/16)
+[flatten] [gak 3/6] Cycle 016  (16/16)
+[flatten] [gak 3/6] Flattening complete.
+[load_swot] [glna 4/6] Starting load_swot (preset)...
+[regrid] [glna 4/6] Starting regrid (preset)...
+[load_swot] [glna 4/6] Loading preset pkl from local mirror experiments\glna\swot_cycles\swot_expert_reproc_v3_glna_science.pkl...
+[load_swot] [glna 4/6] Loaded 16 cycles.
+[regrid] [glna 4/6] Skipped — using preset pkl.
+[load_swot] [glna 4/6] load_swot done
+[regrid] [glna 4/6] regrid done
+[load_era5] [glna 4/6] Starting load_era5...
+[load_era5] [glna 4/6] Loading preset pkl from local mirror experiments\glna\era5\era5wind_science_glna_10m.pkl...
+[load_era5] [glna 4/6] ERA5 loaded from pkl.
+[load_era5] [glna 4/6] load_era5 done in 0.0s
+[load_goes] [glna 4/6] Starting load_goes...
+[load_goes] [glna 4/6] SST not in features — skipping GOES load.
+[load_goes] [glna 4/6] load_goes done in 0.0s
+[interp_sources] [glna 4/6] Starting interp_sources...
+[interp_sources] [glna 4/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:  12%|█▎        | 2/16 [00:00<00:00, 15.32step/s]interp_to_swot:  25%|██▌       | 4/16 [00:00<00:00, 16.03step/s]interp_to_swot:  38%|███▊      | 6/16 [00:00<00:00, 13.58step/s]interp_to_swot:  50%|█████     | 8/16 [00:00<00:00, 12.12step/s]interp_to_swot:  62%|██████▎   | 10/16 [00:00<00:00, 12.89step/s]interp_to_swot:  75%|███████▌  | 12/16 [00:00<00:00, 12.63step/s]interp_to_swot:  88%|████████▊ | 14/16 [00:01<00:00, 12.62step/s]interp_to_swot: 100%|██████████| 16/16 [00:01<00:00, 12.68step/s]interp_to_swot: 100%|██████████| 16/16 [00:01<00:00, 12.96step/s]
+[interp_sources] [glna 4/6] Interpolation complete.
+[interp_sources] [glna 4/6] interp_sources done in 1.4s
+[load_hfr] [glna 4/6] Starting load_hfr (preset)...
+[interp_hfr] [glna 4/6] Starting interp_hfr (preset)...
+[load_hfr] [glna 4/6] Loading preset pkl from local mirror experiments\glna\hfr_target\hfr_science_glna.pkl...
+[load_hfr] [glna 4/6] Loaded preset HFR.
+[interp_hfr] [glna 4/6] Skipped — using preset pkl.
+[load_hfr] [glna 4/6] load_hfr done
+[interp_hfr] [glna 4/6] interp_hfr done
+[flatten] [glna 4/6] Flattening 16 cycles (stencil k=3, 8 features → 72 cols)...
+[flatten] [glna 4/6] Cycle 001  (1/16)
+[flatten] [glna 4/6] Cycle 002  (2/16)
+[flatten] [glna 4/6] Cycle 003  (3/16)
+[flatten] [glna 4/6] Cycle 004  (4/16)
+[flatten] [glna 4/6] Cycle 005  (5/16)
+[flatten] [glna 4/6] Cycle 006  (6/16)
+[flatten] [glna 4/6] Cycle 007  (7/16)
+[flatten] [glna 4/6] Cycle 008  (8/16)
+[flatten] [glna 4/6] Cycle 009  (9/16)
+[flatten] [glna 4/6] Cycle 010  (10/16)
+[flatten] [glna 4/6] Cycle 011  (11/16)
+[flatten] [glna 4/6] Cycle 012  (12/16)
+[flatten] [glna 4/6] Cycle 013  (13/16)
+[flatten] [glna 4/6] Cycle 014  (14/16)
+[flatten] [glna 4/6] Cycle 015  (15/16)
+[flatten] [glna 4/6] Cycle 016  (16/16)
+[flatten] [glna 4/6] Flattening complete.
+[load_swot] [prvi 5/6] Starting load_swot (preset)...
+[regrid] [prvi 5/6] Starting regrid (preset)...
+[load_swot] [prvi 5/6] Loading preset pkl from local mirror experiments\prvi\swot_cycles\swot_expert_reproc_v3_prvi_science.pkl...
+[load_swot] [prvi 5/6] Loaded 16 cycles.
+[regrid] [prvi 5/6] Skipped — using preset pkl.
+[load_swot] [prvi 5/6] load_swot done
+[regrid] [prvi 5/6] regrid done
+[load_era5] [prvi 5/6] Starting load_era5...
+[load_era5] [prvi 5/6] Loading preset pkl from local mirror experiments\prvi\era5\era5wind_science_prvi_10m.pkl...
+[load_era5] [prvi 5/6] ERA5 loaded from pkl.
+[load_era5] [prvi 5/6] load_era5 done in 0.1s
+[load_goes] [prvi 5/6] Starting load_goes...
+[load_goes] [prvi 5/6] SST not in features — skipping GOES load.
+[load_goes] [prvi 5/6] load_goes done in 0.0s
+[interp_sources] [prvi 5/6] Starting interp_sources...
+[interp_sources] [prvi 5/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:   6%|▋         | 1/16 [00:00<00:01,  7.51step/s]interp_to_swot:  12%|█▎        | 2/16 [00:00<00:02,  6.20step/s]interp_to_swot:  19%|█▉        | 3/16 [00:00<00:02,  6.11step/s]interp_to_swot:  25%|██▌       | 4/16 [00:00<00:01,  6.41step/s]interp_to_swot:  31%|███▏      | 5/16 [00:00<00:01,  6.02step/s]interp_to_swot:  38%|███▊      | 6/16 [00:00<00:01,  6.05step/s]interp_to_swot:  44%|████▍     | 7/16 [00:01<00:01,  6.06step/s]interp_to_swot:  50%|█████     | 8/16 [00:01<00:01,  6.31step/s]interp_to_swot:  56%|█████▋    | 9/16 [00:01<00:01,  6.36step/s]interp_to_swot:  62%|██████▎   | 10/16 [00:01<00:00,  6.25step/s]interp_to_swot:  69%|██████▉   | 11/16 [00:01<00:00,  6.22step/s]interp_to_swot:  75%|███████▌  | 12/16 [00:01<00:00,  6.17step/s]interp_to_swot:  81%|████████▏ | 13/16 [00:02<00:00,  5.73step/s]interp_to_swot:  88%|████████▊ | 14/16 [00:02<00:00,  5.90step/s]interp_to_swot:  94%|█████████▍| 15/16 [00:02<00:00,  5.89step/s]interp_to_swot: 100%|██████████| 16/16 [00:02<00:00,  5.98step/s]interp_to_swot: 100%|██████████| 16/16 [00:02<00:00,  6.10step/s]
+[interp_sources] [prvi 5/6] Interpolation complete.
+[interp_sources] [prvi 5/6] interp_sources done in 3.2s
+[load_hfr] [prvi 5/6] Starting load_hfr (preset)...
+[interp_hfr] [prvi 5/6] Starting interp_hfr (preset)...
+[load_hfr] [prvi 5/6] Loading preset pkl from local mirror experiments\prvi\hfr_target\hfr_science_prvi.pkl...
+[load_hfr] [prvi 5/6] Loaded preset HFR.
+[interp_hfr] [prvi 5/6] Skipped — using preset pkl.
+[load_hfr] [prvi 5/6] load_hfr done
+[interp_hfr] [prvi 5/6] interp_hfr done
+[flatten] [prvi 5/6] Flattening 16 cycles (stencil k=3, 8 features → 72 cols)...
+[flatten] [prvi 5/6] Cycle 001  (1/16)
+[flatten] [prvi 5/6] Cycle 002  (2/16)
+[flatten] [prvi 5/6] Cycle 003  (3/16)
+[flatten] [prvi 5/6] Cycle 004  (4/16)
+[flatten] [prvi 5/6] Cycle 005  (5/16)
+[flatten] [prvi 5/6] Cycle 006  (6/16)
+[flatten] [prvi 5/6] Cycle 007  (7/16)
+[flatten] [prvi 5/6] Cycle 008  (8/16)
+[flatten] [prvi 5/6] Cycle 009  (9/16)
+[flatten] [prvi 5/6] Cycle 010  (10/16)
+[flatten] [prvi 5/6] Cycle 011  (11/16)
+[flatten] [prvi 5/6] Cycle 012  (12/16)
+[flatten] [prvi 5/6] Cycle 013  (13/16)
+[flatten] [prvi 5/6] Cycle 014  (14/16)
+[flatten] [prvi 5/6] Cycle 015  (15/16)
+[flatten] [prvi 5/6] Cycle 016  (16/16)
+[flatten] [prvi 5/6] Flattening complete.
+[load_swot] [ushi 6/6] Starting load_swot (preset)...
+[regrid] [ushi 6/6] Starting regrid (preset)...
+[load_swot] [ushi 6/6] Loading preset pkl from local mirror experiments\ushi\swot_cycles\swot_expert_reproc_v3_ushi_science.pkl...
+[load_swot] [ushi 6/6] Loaded 16 cycles.
+[regrid] [ushi 6/6] Skipped — using preset pkl.
+[load_swot] [ushi 6/6] load_swot done
+[regrid] [ushi 6/6] regrid done
+[load_era5] [ushi 6/6] Starting load_era5...
+[load_era5] [ushi 6/6] Loading preset pkl from local mirror experiments\ushi\era5\era5wind_science_ushi_10m.pkl...
+[load_era5] [ushi 6/6] ERA5 loaded from pkl.
+[load_era5] [ushi 6/6] load_era5 done in 0.1s
+[load_goes] [ushi 6/6] Starting load_goes...
+[load_goes] [ushi 6/6] SST not in features — skipping GOES load.
+[load_goes] [ushi 6/6] load_goes done in 0.0s
+[interp_sources] [ushi 6/6] Starting interp_sources...
+[interp_sources] [ushi 6/6] Interpolating [['era5_u', 'era5_v']] onto SWOT grid...
+interp_to_swot:   0%|          | 0/16 [00:00<?, ?step/s]interp_to_swot:  12%|█▎        | 2/16 [00:00<00:01,  8.48step/s]interp_to_swot:  19%|█▉        | 3/16 [00:00<00:01,  6.89step/s]interp_to_swot:  31%|███▏      | 5/16 [00:00<00:01,  6.91step/s]interp_to_swot:  38%|███▊      | 6/16 [00:00<00:01,  6.44step/s]interp_to_swot:  44%|████▍     | 7/16 [00:01<00:01,  6.03step/s]interp_to_swot:  50%|█████     | 8/16 [00:01<00:01,  5.91step/s]interp_to_swot:  56%|█████▋    | 9/16 [00:01<00:01,  4.72step/s]interp_to_swot:  62%|██████▎   | 10/16 [00:01<00:01,  4.82step/s]interp_to_swot:  69%|██████▉   | 11/16 [00:01<00:01,  4.89step/s]interp_to_swot:  75%|███████▌  | 12/16 [00:02<00:00,  4.96step/s]interp_to_swot:  81%|████████▏ | 13/16 [00:02<00:00,  4.96step/s]interp_to_swot:  88%|████████▊ | 14/16 [00:02<00:00,  5.02step/s]interp_to_swot:  94%|█████████▍| 15/16 [00:02<00:00,  5.15step/s]interp_to_swot: 100%|██████████| 16/16 [00:02<00:00,  5.27step/s]interp_to_swot: 100%|██████████| 16/16 [00:02<00:00,  5.48step/s]
+[interp_sources] [ushi 6/6] Interpolation complete.
+[interp_sources] [ushi 6/6] interp_sources done in 3.5s
+[load_hfr] [ushi 6/6] Starting load_hfr (preset)...
+[interp_hfr] [ushi 6/6] Starting interp_hfr (preset)...
+[load_hfr] [ushi 6/6] Loading preset pkl from local mirror experiments\ushi\hfr_target\hfr_science_ushi.pkl...
+[load_hfr] [ushi 6/6] Loaded preset HFR.
+[interp_hfr] [ushi 6/6] Skipped — using preset pkl.
+[load_hfr] [ushi 6/6] load_hfr done
+[interp_hfr] [ushi 6/6] interp_hfr done
+[flatten] [ushi 6/6] Flattening 16 cycles (stencil k=3, 8 features → 72 cols)...
+[flatten] [ushi 6/6] Cycle 001  (1/16)
+[flatten] [ushi 6/6] Cycle 002  (2/16)
+[flatten] [ushi 6/6] Cycle 003  (3/16)
+[flatten] [ushi 6/6] Cycle 004  (4/16)
+[flatten] [ushi 6/6] Cycle 005  (5/16)
+[flatten] [ushi 6/6] Cycle 006  (6/16)
+[flatten] [ushi 6/6] Cycle 007  (7/16)
+[flatten] [ushi 6/6] Cycle 008  (8/16)
+[flatten] [ushi 6/6] Cycle 009  (9/16)
+[flatten] [ushi 6/6] Cycle 010  (10/16)
+[flatten] [ushi 6/6] Cycle 011  (11/16)
+[flatten] [ushi 6/6] Cycle 012  (12/16)
+[flatten] [ushi 6/6] Cycle 013  (13/16)
+[flatten] [ushi 6/6] Cycle 014  (14/16)
+[flatten] [ushi 6/6] Cycle 015  (15/16)
+[flatten] [ushi 6/6] Cycle 016  (16/16)
+[flatten] [ushi 6/6] Flattening complete.
+[23:19:39] Data: 3802854 train / 1301098 test rows, 72 inputs (C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_all_science_v1\data.npz)
+[23:19:40] gen000_00: evaluating seed candidate...
+[23:27:32] claude-cli: $0.00 per-token cost — runs on your existing Claude subscription (counts toward its usage limits; ~140 agent calls planned).
+[23:27:32] Preparing pooled science arrays (all trainable regions, cached/local)...
+[23:27:32] Data: 3802854 train / 1301098 test rows, 72 inputs (C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_all_science_v1\data.npz)
+[23:27:33] gen000_00: evaluating seed candidate...
+[23:41:41]   seed fitness 0.2943 (r2_u 0.2560, r2_v 0.3327, 828s)
+[23:59:03]   gen001_00: fitness 0.2935 | best 0.2943 (gen000_00) | spent $0.00 | ETA 4379 min
+[00:05:05]   gen001_01: fitness 0.3843 | best 0.3843 (gen001_01) | spent $0.00 | ETA 2590 min
+[00:11:55]   gen001_02: fitness 0.3803 | best 0.3843 (gen001_01) | spent $0.00 | ETA 2026 min
+[00:30:34]   gen001_03: fitness 0.3905 | best 0.3905 (gen001_03) | spent $0.00 | ETA 2143 min
+[00:38:55]   gen002_00: fitness 0.3946 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1927 min
+[00:47:56]   gen002_01: fitness 0.3779 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1795 min
+[00:55:21]   gen002_02: fitness 0.3942 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1668 min
+[01:09:05]   gen002_03: fitness 0.3630 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1675 min
+[01:15:30]   gen003_00: fitness 0.3861 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1571 min
+[01:21:21]   gen003_01: fitness 0.3927 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1479 min
+[01:26:12]   gen003_02: fitness 0.3866 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1391 min
+[01:33:32]   gen003_03: fitness 0.3805 | best 0.3946 (gen002_00) | spent $0.00 | ETA 1344 min
+[01:38:54]   gen004_00: fitness 0.3953 | best 0.3953 (gen004_00) | spent $0.00 | ETA 1283 min
+[01:45:47]   gen004_01: fitness 0.3778 | best 0.3953 (gen004_00) | spent $0.00 | ETA 1244 min
+[01:54:00]   gen004_02: fitness 0.3958 | best 0.3958 (gen004_02) | spent $0.00 | ETA 1220 min
+[02:06:23]   gen004_03: fitness 0.3422 | best 0.3958 (gen004_02) | spent $0.00 | ETA 1231 min
+[02:15:53]   gen005_00: fitness 0.3966 | best 0.3966 (gen005_00) | spent $0.00 | ETA 1218 min
+[02:25:18]   gen005_01: fitness 0.3937 | best 0.3966 (gen005_00) | spent $0.00 | ETA 1205 min
+[02:36:01]   gen005_02: fitness 0.4151 | best 0.4151 (gen005_02) | spent $0.00 | ETA 1200 min
+[02:42:49]   gen005_03: fitness 0.4092 | best 0.4151 (gen005_02) | spent $0.00 | ETA 1172 min
+[02:49:19]   gen006_00: fitness 0.4224 | best 0.4224 (gen006_00) | spent $0.00 | ETA 1143 min
+[02:54:20]   gen006_01: fitness 0.4030 | best 0.4224 (gen006_00) | spent $0.00 | ETA 1109 min
+[03:07:31]   gen006_02: fitness 0.4253 | best 0.4253 (gen006_02) | spent $0.00 | ETA 1119 min
+[03:34:45]   gen006_03: fitness 0.3859 | best 0.4253 (gen006_02) | spent $0.00 | ETA 1195 min
+[03:41:10]   gen007_00: fitness 0.4277 | best 0.4277 (gen007_00) | spent $0.00 | ETA 1167 min
+[03:53:03]   gen007_01: fitness 0.4309 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1164 min
+[03:59:37]   gen007_02: fitness 0.4216 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1139 min
+[04:13:57]   gen007_03: fitness 0.4101 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1146 min
+[04:30:11]   gen008_00: fitness 0.4197 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1158 min
+[04:36:42]   gen008_01: fitness 0.4225 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1134 min
+[04:42:14]   gen008_02: fitness 0.4026 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1106 min
+[05:10:46]   gen008_03: fitness 0.3813 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1158 min
+[05:26:21]   gen009_00: fitness 0.4243 | best 0.4309 (gen007_01) | spent $0.00 | ETA 1163 min
+[05:38:11]   gen009_01: fitness 0.4312 | best 0.4312 (gen009_01) | spent $0.00 | ETA 1155 min
+[05:50:11]   gen009_02: fitness 0.4318 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1148 min
+[06:09:33]   gen009_03: fitness 0.4088 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1161 min
+[06:22:24]   gen010_00: fitness 0.4244 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1155 min
+[06:34:08]   gen010_01: fitness 0.4272 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1145 min
+[06:48:01]   gen010_02: fitness 0.4310 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1141 min
+[07:10:12]   gen010_03: fitness 0.4267 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1157 min
+[07:15:53]   gen011_00: fitness 0.4219 | best 0.4318 (gen009_02) | spent $0.00 | ETA 1131 min
+[07:27:41]   gen011_01: fitness 0.4321 | best 0.4321 (gen011_01) | spent $0.00 | ETA 1120 min
+[07:40:42]   gen011_02: fitness 0.4296 | best 0.4321 (gen011_01) | spent $0.00 | ETA 1112 min
+[07:57:30]   gen011_03: fitness 0.4130 | best 0.4321 (gen011_01) | spent $0.00 | ETA 1113 min
+[08:09:56]   gen012_00: fitness 0.4344 | best 0.4344 (gen012_00) | spent $0.00 | ETA 1103 min
+[08:22:18]   gen012_01: fitness 0.4343 | best 0.4344 (gen012_00) | spent $0.00 | ETA 1093 min
+[08:38:48]   gen012_02: fitness 0.4326 | best 0.4344 (gen012_00) | spent $0.00 | ETA 1091 min
+[09:04:05]   gen012_03: fitness 0.4353 | best 0.4353 (gen012_03) | spent $0.00 | ETA 1105 min
+[09:16:31]   gen013_00: fitness 0.4365 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1094 min
+[09:36:17]   gen013_01: fitness 0.4310 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1096 min
+[10:02:46]   gen013_02: fitness 0.4304 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1109 min
+[10:20:21]   gen013_03: fitness 0.4116 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1105 min
+[10:33:47]   gen014_00: fitness 0.4293 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1094 min
+[10:48:43]   gen014_01: fitness 0.4292 | best 0.4365 (gen013_00) | spent $0.00 | ETA 1085 min
+[11:02:30]   gen014_02: fitness 0.4369 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1074 min
+[11:19:20]   gen014_03: fitness 0.4262 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1068 min
+[11:38:10]   gen015_00: fitness 0.4339 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1064 min
+[11:54:54]   gen015_01: fitness 0.4311 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1057 min
+[12:27:46]   gen015_02: fitness 0.4367 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1071 min
+[13:43:19]   gen015_03: fitness 0.4121 | best 0.4369 (gen014_02) | spent $0.00 | ETA 1141 min
+[13:51:48]   gen016_00: fitness 0.4386 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1119 min
+[14:02:49]   gen016_01: fitness 0.4292 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1101 min
+[14:06:29]   gen016_02: fitness 0.3886 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1074 min
+[14:16:38]   gen016_03: fitness 0.4384 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1056 min
+[14:28:02]   gen017_00: fitness 0.4334 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1039 min
+[14:37:52]   gen017_01: fitness 0.4312 | best 0.4386 (gen016_00) | spent $0.00 | ETA 1021 min
+[14:47:53]   gen017_02: fitness 0.4394 | best 0.4394 (gen017_02) | spent $0.00 | ETA 1003 min
+[15:07:52]   gen017_03: fitness 0.4176 | best 0.4394 (gen017_02) | spent $0.00 | ETA 996 min
+[15:18:17]   gen018_00: fitness 0.4313 | best 0.4394 (gen017_02) | spent $0.00 | ETA 978 min
+[15:29:54]   gen018_01: fitness 0.4306 | best 0.4394 (gen017_02) | spent $0.00 | ETA 962 min
+[15:42:10]   gen018_02: fitness 0.4276 | best 0.4394 (gen017_02) | spent $0.00 | ETA 947 min
+[16:03:36]   gen018_03: fitness 0.4249 | best 0.4394 (gen017_02) | spent $0.00 | ETA 941 min
+[16:14:20]   gen019_00: fitness 0.4332 | best 0.4394 (gen017_02) | spent $0.00 | ETA 924 min
+[16:31:49]   gen019_01: fitness 0.4394 | best 0.4394 (gen017_02) | spent $0.00 | ETA 914 min
+[16:49:36]   gen019_02: fitness 0.4392 | best 0.4394 (gen017_02) | spent $0.00 | ETA 903 min
+[17:05:46]   gen019_03: fitness 0.4234 | best 0.4394 (gen017_02) | spent $0.00 | ETA 891 min
+[17:18:33]   gen020_00: fitness 0.4247 | best 0.4394 (gen017_02) | spent $0.00 | ETA 876 min
+[17:41:34]   gen020_01: fitness 0.4344 | best 0.4394 (gen017_02) | spent $0.00 | ETA 870 min
+[17:58:17]   gen020_02: fitness 0.4380 | best 0.4394 (gen017_02) | spent $0.00 | ETA 858 min
+[18:24:23]   gen020_03: fitness 0.3973 | best 0.4394 (gen017_02) | spent $0.00 | ETA 853 min
+[18:28:20]   gen021_00: fitness 0.4110 | best 0.4394 (gen017_02) | spent $0.00 | ETA 831 min
+[18:37:59]   gen021_01: fitness 0.4389 | best 0.4394 (gen017_02) | spent $0.00 | ETA 814 min
+[18:55:25]   gen021_02: fitness 0.4394 | best 0.4394 (gen017_02) | spent $0.00 | ETA 802 min
+[19:08:19]   gen021_03: fitness 0.4123 | best 0.4394 (gen017_02) | spent $0.00 | ETA 787 min
+[19:13:33]   gen022_00: fitness 0.4133 | best 0.4394 (gen017_02) | spent $0.00 | ETA 767 min
+[19:34:25]   gen022_01: fitness 0.4345 | best 0.4394 (gen017_02) | spent $0.00 | ETA 758 min
+[19:45:51]   gen022_02: fitness 0.4399 | best 0.4399 (gen022_02) | spent $0.00 | ETA 742 min
+[20:09:02]   gen022_03: fitness 0.4411 | best 0.4411 (gen022_03) | spent $0.00 | ETA 734 min
+[20:37:03]   gen023_00: fitness 0.4388 | best 0.4411 (gen022_03) | spent $0.00 | ETA 727 min
+[20:48:22]   gen023_01: fitness 0.4393 | best 0.4411 (gen022_03) | spent $0.00 | ETA 712 min
+[21:06:50]   gen023_02: fitness 0.4436 | best 0.4436 (gen023_02) | spent $0.00 | ETA 700 min
+[21:18:27]   gen023_03: fitness 0.4327 | best 0.4436 (gen023_02) | spent $0.00 | ETA 684 min
+[21:42:29]   gen024_00: fitness 0.4060 | best 0.4436 (gen023_02) | spent $0.00 | ETA 675 min
+[22:00:12]   gen024_01: fitness 0.4405 | best 0.4436 (gen023_02) | spent $0.00 | ETA 662 min
+[23:20:44]   gen024_02: fitness 0.4363 | best 0.4436 (gen023_02) | spent $0.00 | ETA 679 min
+[23:29:31]   gen024_03: fitness 0.4125 | best 0.4436 (gen023_02) | spent $0.00 | ETA 661 min
+[00:26:08]   gen025_00: fitness 0.4416 | best 0.4436 (gen023_02) | spent $0.00 | ETA 664 min
+[01:11:43]   gen025_01: fitness 0.4221 | best 0.4436 (gen023_02) | spent $0.00 | ETA 662 min
+[01:42:57]   gen025_02: fitness 0.4436 | best 0.4436 (gen025_02) | spent $0.00 | ETA 652 min
+[02:03:59]   gen025_03: fitness 0.4312 | best 0.4436 (gen025_02) | spent $0.00 | ETA 639 min
+[02:32:07]   gen026_00: fitness 0.4457 | best 0.4457 (gen026_00) | spent $0.00 | ETA 627 min
+[03:02:51]   gen026_01: fitness 0.4403 | best 0.4457 (gen026_00) | spent $0.00 | ETA 617 min
+[03:30:46]   gen026_02: fitness 0.4451 | best 0.4457 (gen026_00) | spent $0.00 | ETA 605 min
+[03:44:34]   gen026_03: fitness 0.4336 | best 0.4457 (gen026_00) | spent $0.00 | ETA 587 min
+[04:13:31]   gen027_00: fitness 0.4355 | best 0.4457 (gen026_00) | spent $0.00 | ETA 575 min
+[04:39:06]   gen027_01: fitness 0.4443 | best 0.4457 (gen026_00) | spent $0.00 | ETA 562 min
+[05:04:59]   gen027_02: fitness 0.4391 | best 0.4457 (gen026_00) | spent $0.00 | ETA 548 min
+[05:50:08]   gen027_03: fitness 0.4399 | best 0.4457 (gen026_00) | spent $0.00 | ETA 540 min
+[06:20:45]   gen028_00: fitness 0.4381 | best 0.4457 (gen026_00) | spent $0.00 | ETA 527 min
+[06:39:13]   gen028_01: fitness 0.4292 | best 0.4457 (gen026_00) | spent $0.00 | ETA 510 min
+[07:05:36]   gen028_02: fitness 0.4457 | best 0.4457 (gen028_02) | spent $0.00 | ETA 496 min
+[07:35:45]   gen028_03: fitness 0.4253 | best 0.4457 (gen028_02) | spent $0.00 | ETA 482 min
+[08:14:06]   gen029_00: fitness 0.4178 | best 0.4457 (gen028_02) | spent $0.00 | ETA 470 min
+[08:24:58]   gen029_01: fitness 0.4057 | best 0.4457 (gen028_02) | spent $0.00 | ETA 451 min
+[08:52:30]   gen029_02: fitness 0.4450 | best 0.4457 (gen028_02) | spent $0.00 | ETA 436 min
+[10:18:13]   gen029_03: fitness 0.4221 | best 0.4457 (gen028_02) | spent $0.00 | ETA 433 min
+[10:31:39]   gen030_00: fitness 0.4307 | best 0.4457 (gen028_02) | spent $0.00 | ETA 414 min
+[11:04:40]   gen030_01: fitness 0.4421 | best 0.4457 (gen028_02) | spent $0.00 | ETA 398 min
+[11:37:00]   gen030_02: fitness 0.4405 | best 0.4457 (gen028_02) | spent $0.00 | ETA 383 min
+[11:48:54]   gen030_03: fitness 0.4168 | best 0.4457 (gen028_02) | spent $0.00 | ETA 364 min
+[12:20:18]   gen031_00: fitness 0.4458 | best 0.4458 (gen031_00) | spent $0.00 | ETA 347 min
+[12:49:13]   gen031_01: fitness 0.4362 | best 0.4458 (gen031_00) | spent $0.00 | ETA 331 min
+[13:23:31]   gen031_02: fitness 0.4323 | best 0.4458 (gen031_00) | spent $0.00 | ETA 315 min
+[13:33:38]   gen031_03: fitness 0.3960 | best 0.4458 (gen031_00) | spent $0.00 | ETA 295 min
+[14:03:41]   gen032_00: fitness 0.4430 | best 0.4458 (gen031_00) | spent $0.00 | ETA 278 min
+[14:34:34]   gen032_01: fitness 0.4400 | best 0.4458 (gen031_00) | spent $0.00 | ETA 261 min
+[14:37:11]   gen032_02: proposer failed (claude-cli:claude-fable-5 exited 1: API Error: Connection closed mid-response. The response above may be incomplete.
+)
+[14:40:12]   gen032_03: proposer failed (claude-cli:claude-fable-5 exited 1: API Error: Unable to connect to API (ENOTFOUND)
+)
+[15:37:16]   gen033_00: proposer failed (Command '['C:\\Users\\david\\.local\\bin\\claude.EXE', '-p', '--model', 'claude-fable-5']' timed out after -2523.562524100009 seconds)
+[16:11:50]   gen033_01: fitness 0.4457 | best 0.4458 (gen031_00) | spent $0.00 | ETA 250 min
+[16:38:00]   gen033_02: fitness 0.4432 | best 0.4458 (gen031_00) | spent $0.00 | ETA 232 min
+[16:58:00]   gen033_03: fitness 0.4364 | best 0.4458 (gen031_00) | spent $0.00 | ETA 212 min
+[17:18:26]   gen034_00: fitness 0.4374 | best 0.4458 (gen031_00) | spent $0.00 | ETA 193 min
+[17:31:29]   gen034_01: fitness 0.4354 | best 0.4458 (gen031_00) | spent $0.00 | ETA 173 min
+[17:54:12]   gen034_02: fitness 0.4311 | best 0.4458 (gen031_00) | spent $0.00 | ETA 154 min
+[18:42:20]   gen034_03: fitness 0.4199 | best 0.4458 (gen031_00) | spent $0.00 | ETA 137 min
+[19:06:49]   gen035_00: fitness 0.4449 | best 0.4458 (gen031_00) | spent $0.00 | ETA 117 min
+[19:44:41]   gen035_01: fitness 0.4430 | best 0.4458 (gen031_00) | spent $0.00 | ETA 98 min
+[19:51:10]   gen035_02: fitness 0.3724 | best 0.4458 (gen031_00) | spent $0.00 | ETA 78 min
+[20:07:34]   gen035_03: fitness 0.4238 | best 0.4458 (gen031_00) | spent $0.00 | ETA 59 min
+[20:07:34] DONE. Best: gen031_00 fitness 0.4458 (r2_u 0.4055, r2_v 0.4861); API spent $0.00.
+[20:07:34] Best code: C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_all_science_v1\candidates\gen031_00\candidate.py

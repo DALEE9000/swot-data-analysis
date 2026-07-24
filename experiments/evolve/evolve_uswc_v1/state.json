@@ -1,0 +1,39 @@
+{
+  "running": false,
+  "settings": {
+    "generations": 20,
+    "children": 4,
+    "budget_usd": 10.0,
+    "llm_model": "claude-cli",
+    "train_max_epochs": 60,
+    "timeout_min": 30.0,
+    "seed": 42
+  },
+  "data_meta": {
+    "n_train": 1018355,
+    "n_test": 273146,
+    "n_inputs": 81,
+    "features": [
+      "mdt",
+      "ssha_filtered",
+      "ugos_filtered",
+      "vgos_filtered",
+      "ugosa_filtered",
+      "vgosa_filtered",
+      "era5_u",
+      "era5_v",
+      "SST"
+    ],
+    "stencil_k": 3,
+    "region": "uswc",
+    "mission": "calval",
+    "cycles_start": 474,
+    "cycles_end": 578,
+    "train_fraction": 0.8
+  },
+  "updated_at": "2026-07-21T10:14:11",
+  "spent_usd": 0.0,
+  "best_id": "gen020_02",
+  "best_fitness": 0.3609488904476166,
+  "n_candidates": 81
+}

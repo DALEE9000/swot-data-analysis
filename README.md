@@ -215,11 +215,62 @@ Key fields in `config.yaml`:
 
 ---
 
+## AlphaEvolve (LLM-guided code evolution)
+
+Evolves the ANN training code itself: Claude proposes full-module mutations of
+a candidate `train_and_predict()` (seeded from the production MLP), each
+candidate trains locally in a sandboxed subprocess (no file/network/OS access,
+cloud credentials stripped, hard timeout), and is scored on a **temporally
+held-out** split — fitness = mean of R²(u) and R²(v). Results append to
+`experiments/evolve/{name}/database.jsonl`; watch live in the app's **Evolve** tab.
+
+```bash
+pip install -e ".[ann,evolve]"          # adds the anthropic SDK
+
+# Free smoke test — no API calls (mock mutator jitters hyperparameters):
+python scripts/evolve.py --config config.yaml --name test_mock --mock-llm \
+    --generations 2 --children 2
+
+# Zero-cost LLM evolution on your existing subscriptions (no API credits):
+python scripts/evolve.py --config config.yaml --name evolve_uswc_v1 \
+    --mutator claude-cli --generations 10 --children 4      # `claude -p` (Claude sub)
+python scripts/evolve.py --config config.yaml --name evolve_uswc_v1 \
+    --mutator codex-cli --generations 10 --children 4       # `codex exec` (ChatGPT sub)
+
+# Direct Anthropic API — prints a dollar estimate and asks for confirmation
+# first; --budget-usd is a hard cap checked before every API call:
+python scripts/evolve.py --config config.yaml --name evolve_uswc_v1 \
+    --mutator claude-api --generations 10 --children 4 --budget-usd 10
+```
+
+Notes:
+- **Launch from the app instead:** the Evolve tab has a "Launch a new run"
+  panel (features, stencil k, generations, children, mutator, pooled domain) —
+  it spawns the same detached, resumable process the CLI does.
+- **`--features` / `--stencil-k`** override `config.yaml` per run; a run's
+  dataset is frozen at first launch, so changing them requires a new `--name`.
+- **Mutators are agent-agnostic** (`--mutator`): `claude-cli` / `codex-cli`
+  shell out to a locally installed CLI agent and run on its subscription
+  (counts toward its usage windows; $0 per token). `claude-api` needs
+  `ANTHROPIC_API_KEY` (parent process only — it is stripped from candidate
+  subprocesses); default model `claude-opus-4-8` (~$0.17/candidate ≈ $7 for a
+  10×4 run), `--llm-model claude-sonnet-5` is ~2.5× cheaper.
+- Re-running with the same `--name` **resumes** (completed candidates are
+  skipped) — safe across hibernation.
+- `--train-max-epochs 60` (default) screens candidates in ~4 min each on the
+  GTX 1650 Ti; raise it (or retrain the winner at 200 epochs) for final numbers.
+- All data reads are local (pipeline cache); the evolve loop never touches S3.
+
+---
+
 ## Data requirements for model runs
 
 See **[docs/model-data.md](docs/model-data.md)** for exactly which files each
 model run needs (per region × mission), what's optional, local-vs-S3
 resolution, sizes, and re-download commands.
+
+Dated research notes (findings, experiment narratives, project history) live in
+**[docs/research-log.md](docs/research-log.md)**.
 
 ## Region presets
 

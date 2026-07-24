@@ -1,0 +1,89 @@
+[queue] waiting for the trial run to finish...
+[queue] trial finished - launching full run (10 generations x 4 children, claude-cli)
+[23:09:31] claude-cli: $0.00 per-token cost — runs on your existing Claude subscription (counts toward its usage limits; ~40 agent calls planned).
+[23:09:31] Preparing frozen train/test arrays (shared steps + flatten, all cached/local)...
+[23:09:31] Data: 1018355 train / 273146 test rows, 81 inputs (C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_uswc_v1\data.npz)
+[queue] full run exited with code 127
+[23:11:44] claude-cli: $0.00 per-token cost — runs on your existing Claude subscription (counts toward its usage limits; ~80 agent calls planned).
+[23:11:44] Preparing frozen train/test arrays (shared steps + flatten, all cached/local)...
+[23:11:44] Data: 1018355 train / 273146 test rows, 81 inputs (C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_uswc_v1\data.npz)
+[23:14:13]   gen001_02: fitness 0.2843 | best 0.2843 (gen001_02) | spent $0.00 | ETA 64 min
+[23:16:00]   gen001_03: fitness 0.2661 | best 0.2843 (gen001_02) | spent $0.00 | ETA 81 min
+[23:21:33]   gen002_00: fitness 0.2983 | best 0.2983 (gen002_00) | spent $0.00 | ETA 147 min
+[23:23:57]   gen002_01: fitness 0.1353 | best 0.2983 (gen002_00) | spent $0.00 | ETA 151 min
+[23:30:02]   gen002_02: fitness 0.3060 | best 0.3060 (gen002_02) | spent $0.00 | ETA 191 min
+[23:36:48]   gen002_03: fitness 0.3052 | best 0.3060 (gen002_02) | spent $0.00 | ETA 226 min
+[23:43:01]   gen003_00: fitness 0.2981 | best 0.3060 (gen002_02) | spent $0.00 | ETA 247 min
+[23:45:54]   gen003_01: fitness 0.1428 | best 0.3060 (gen002_02) | spent $0.00 | ETA 239 min
+[23:54:11]   gen003_02: fitness 0.2448 | best 0.3060 (gen002_02) | spent $0.00 | ETA 266 min
+[00:02:21]   gen003_03: fitness 0.3006 | best 0.3060 (gen002_02) | spent $0.00 | ETA 287 min
+[00:10:41]   gen004_00: fitness 0.2938 | best 0.3060 (gen002_02) | spent $0.00 | ETA 304 min
+[00:16:36]   gen004_01: fitness 0.3109 | best 0.3109 (gen004_01) | spent $0.00 | ETA 306 min
+[00:23:58]   gen004_02: fitness 0.3015 | best 0.3109 (gen004_01) | spent $0.00 | ETA 313 min
+[00:31:16]   gen004_03: fitness 0.3051 | best 0.3109 (gen004_01) | spent $0.00 | ETA 318 min
+[00:38:21]   gen005_00: fitness 0.1930 | best 0.3109 (gen004_01) | spent $0.00 | ETA 321 min
+[00:44:31]   gen005_01: fitness 0.3005 | best 0.3109 (gen004_01) | spent $0.00 | ETA 320 min
+[00:59:06]   gen005_02: fitness 0.1930 | best 0.3109 (gen004_01) | spent $0.00 | ETA 345 min
+[01:10:03]   gen005_03: fitness 0.3115 | best 0.3115 (gen005_03) | spent $0.00 | ETA 355 min
+[01:20:53]   gen006_00: fitness 0.3223 | best 0.3223 (gen006_00) | spent $0.00 | ETA 363 min
+[01:27:33]   gen006_01: fitness 0.3210 | best 0.3223 (gen006_00) | spent $0.00 | ETA 358 min
+[01:34:58]   gen006_02: fitness 0.3253 | best 0.3253 (gen006_02) | spent $0.00 | ETA 355 min
+[01:41:37]   gen006_03: fitness 0.3290 | best 0.3290 (gen006_03) | spent $0.00 | ETA 350 min
+[01:47:52]   gen007_00: fitness 0.3290 | best 0.3290 (gen006_03) | spent $0.00 | ETA 344 min
+[01:56:02]   gen007_01: fitness 0.2956 | best 0.3290 (gen006_03) | spent $0.00 | ETA 341 min
+[02:02:58]   gen007_02: fitness 0.3339 | best 0.3339 (gen007_02) | spent $0.00 | ETA 336 min
+[02:08:31]   gen007_03: fitness 0.3065 | best 0.3339 (gen007_02) | spent $0.00 | ETA 328 min
+[02:14:33]   gen008_00: fitness 0.3045 | best 0.3339 (gen007_02) | spent $0.00 | ETA 321 min
+[02:19:58]   gen008_01: fitness 0.3090 | best 0.3339 (gen007_02) | spent $0.00 | ETA 314 min
+[02:28:23]   gen008_02: fitness 0.3275 | best 0.3339 (gen007_02) | spent $0.00 | ETA 311 min
+[02:37:51]   gen008_03: fitness 0.3339 | best 0.3339 (gen007_02) | spent $0.00 | ETA 309 min
+[02:45:01]   gen009_00: fitness 0.3231 | best 0.3339 (gen007_02) | spent $0.00 | ETA 304 min
+[02:52:07]   gen009_01: fitness 0.3232 | best 0.3339 (gen007_02) | spent $0.00 | ETA 298 min
+[02:59:08]   gen009_02: fitness 0.2852 | best 0.3339 (gen007_02) | spent $0.00 | ETA 292 min
+[03:05:51]   gen009_03: fitness 0.3176 | best 0.3339 (gen007_02) | spent $0.00 | ETA 286 min
+[03:12:39]   gen010_00: fitness 0.2042 | best 0.3339 (gen007_02) | spent $0.00 | ETA 280 min
+[03:21:47]   gen010_01: fitness 0.3215 | best 0.3339 (gen007_02) | spent $0.00 | ETA 276 min
+[03:28:56]   gen010_02: fitness 0.2852 | best 0.3339 (gen007_02) | spent $0.00 | ETA 270 min
+[03:36:15]   gen010_03: fitness 0.3324 | best 0.3339 (gen007_02) | spent $0.00 | ETA 265 min
+[03:44:57]   gen011_00: fitness 0.3188 | best 0.3339 (gen007_02) | spent $0.00 | ETA 260 min
+[03:52:01]   gen011_01: fitness 0.3045 | best 0.3339 (gen007_02) | spent $0.00 | ETA 254 min
+[04:02:09]   gen011_02: fitness 0.3339 | best 0.3339 (gen007_02) | spent $0.00 | ETA 250 min
+[04:12:02]   gen011_03: fitness 0.3138 | best 0.3339 (gen007_02) | spent $0.00 | ETA 246 min
+[04:19:16]   gen012_00: fitness 0.3090 | best 0.3339 (gen007_02) | spent $0.00 | ETA 239 min
+[04:28:44]   gen012_01: fitness 0.3087 | best 0.3339 (gen007_02) | spent $0.00 | ETA 234 min
+[04:37:36]   gen012_02: fitness 0.3087 | best 0.3339 (gen007_02) | spent $0.00 | ETA 229 min
+[04:45:34]   gen012_03: fitness 0.3168 | best 0.3339 (gen007_02) | spent $0.00 | ETA 223 min
+[04:51:45]   gen013_00: fitness 0.3090 | best 0.3339 (gen007_02) | spent $0.00 | ETA 215 min
+[04:58:56]   gen013_01: fitness 0.3131 | best 0.3339 (gen007_02) | spent $0.00 | ETA 208 min
+[05:05:38]   gen013_02: fitness 0.3158 | best 0.3339 (gen007_02) | spent $0.00 | ETA 201 min
+[05:12:06]   gen013_03: fitness 0.3230 | best 0.3339 (gen007_02) | spent $0.00 | ETA 194 min
+[05:19:36]   gen014_00: fitness 0.3226 | best 0.3339 (gen007_02) | spent $0.00 | ETA 187 min
+[05:31:01]   gen014_01: fitness 0.3456 | best 0.3456 (gen014_01) | spent $0.00 | ETA 183 min
+[05:41:31]   gen014_02: fitness 0.3502 | best 0.3502 (gen014_02) | spent $0.00 | ETA 177 min
+[05:53:17]   gen014_03: fitness 0.3486 | best 0.3502 (gen014_02) | spent $0.00 | ETA 172 min
+[06:04:11]   gen015_00: fitness 0.3326 | best 0.3502 (gen014_02) | spent $0.00 | ETA 166 min
+[06:12:53]   gen015_01: fitness 0.3438 | best 0.3502 (gen014_02) | spent $0.00 | ETA 160 min
+[06:24:18]   gen015_02: fitness 0.3485 | best 0.3502 (gen014_02) | spent $0.00 | ETA 154 min
+[06:32:55]   gen015_03: fitness 0.3282 | best 0.3502 (gen014_02) | spent $0.00 | ETA 147 min
+[06:43:03]   gen016_00: fitness 0.3433 | best 0.3502 (gen014_02) | spent $0.00 | ETA 141 min
+[06:52:56]   gen016_01: fitness 0.3499 | best 0.3502 (gen014_02) | spent $0.00 | ETA 134 min
+[07:03:18]   gen016_02: fitness 0.3221 | best 0.3502 (gen014_02) | spent $0.00 | ETA 127 min
+[07:11:30]   gen016_03: fitness 0.3483 | best 0.3502 (gen014_02) | spent $0.00 | ETA 120 min
+[07:21:56]   gen017_00: fitness 0.3483 | best 0.3502 (gen014_02) | spent $0.00 | ETA 113 min
+[07:31:11]   gen017_01: fitness 0.3493 | best 0.3502 (gen014_02) | spent $0.00 | ETA 106 min
+[07:39:47]   gen017_02: fitness 0.3388 | best 0.3502 (gen014_02) | spent $0.00 | ETA 99 min
+[07:49:16]   gen017_03: fitness 0.2985 | best 0.3502 (gen014_02) | spent $0.00 | ETA 91 min
+[07:59:41]   gen018_00: fitness 0.3502 | best 0.3502 (gen014_02) | spent $0.00 | ETA 84 min
+[08:12:02]   gen018_01: fitness 0.3459 | best 0.3502 (gen014_02) | spent $0.00 | ETA 77 min
+[08:21:46]   gen018_02: fitness 0.3534 | best 0.3534 (gen018_02) | spent $0.00 | ETA 70 min
+[08:34:15]   gen018_03: fitness 0.3572 | best 0.3572 (gen018_03) | spent $0.00 | ETA 63 min
+[08:47:01]   gen019_00: fitness 0.3581 | best 0.3581 (gen019_00) | spent $0.00 | ETA 55 min
+[09:00:12]   gen019_01: fitness 0.3586 | best 0.3586 (gen019_01) | spent $0.00 | ETA 48 min
+[09:12:38]   gen019_02: fitness 0.3575 | best 0.3586 (gen019_01) | spent $0.00 | ETA 40 min
+[09:26:35]   gen019_03: fitness 0.3574 | best 0.3586 (gen019_01) | spent $0.00 | ETA 32 min
+[09:38:41]   gen020_00: fitness 0.3575 | best 0.3586 (gen019_01) | spent $0.00 | ETA 24 min
+[09:49:23]   gen020_01: fitness 0.3434 | best 0.3586 (gen019_01) | spent $0.00 | ETA 16 min
+[10:01:54]   gen020_02: fitness 0.3609 | best 0.3609 (gen020_02) | spent $0.00 | ETA 8 min
+[10:14:11]   gen020_03: fitness 0.3533 | best 0.3609 (gen020_02) | spent $0.00 | ETA 0 min
+[10:14:11] DONE. Best: gen020_02 fitness 0.3609 (r2_u 0.3202, r2_v 0.4017); API spent $0.00.
+[10:14:11] Best code: C:\Users\david\Documents\columbiaocean\SWOT-data-analysis\experiments\evolve\evolve_uswc_v1\candidates\gen020_02\candidate.py

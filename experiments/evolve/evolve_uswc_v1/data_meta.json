@@ -1,0 +1,22 @@
+{
+  "n_train": 1018355,
+  "n_test": 273146,
+  "n_inputs": 81,
+  "features": [
+    "mdt",
+    "ssha_filtered",
+    "ugos_filtered",
+    "vgos_filtered",
+    "ugosa_filtered",
+    "vgosa_filtered",
+    "era5_u",
+    "era5_v",
+    "SST"
+  ],
+  "stencil_k": 3,
+  "region": "uswc",
+  "mission": "calval",
+  "cycles_start": 474,
+  "cycles_end": 578,
+  "train_fraction": 0.8
+}
