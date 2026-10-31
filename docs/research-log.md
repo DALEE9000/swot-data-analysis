@@ -9,6 +9,94 @@ Convention: newest entry first; one `##` section per date; record *why* alongsid
 
 ## 2026-10-31 — Repository cleanup plan
 
+### 16:40 Replication gaps closed: lock file, HFRNet recipe, archive manifest, guide
+
+David: "do all of the four things too. make a note that these replication
+tasks should be updated as i'm progressing with the research in project-level
+claude.md."
+
+1. `requirements-lock.txt` at the repo root: `pip list --format=freeze` of the
+   swotopentoolkit env (276 pins; Python 3.13.1; torch 2.13.0+cu126). A first
+   attempt with `pip freeze` produced 167 `@ file:///` conda-build references
+   that pip cannot install elsewhere, so the list form was used instead; the
+   header says some conda-installed packages may resolve to different builds.
+2. HFRNet route. Our hourly radar files came as handed-over NetCDFs screened at
+   HDOP 1.0; HFRNet's public THREDDS "best" aggregations are screened at 1.25,
+   so a public rebuild has slightly more cells. The recipe (an xarray/OPeNDAP
+   pull per region, resolution and year into a folder named like ours, then
+   `aggregate_hfr.py --phase build --keep-local` and `build_hfr_multires.py`)
+   is in `docs/replication.md` 2.3. The two HFR scripts had our machine's path
+   hard-coded; both now honour `HFR_DATA_ROOT` with the old default kept. The
+   colocation script's `HFR_SOURCES` dict (S3 paths) was left as is and the
+   guide says to repoint it; that code opens the archive inside a retry
+   closure and changing it was not worth the risk today.
+3. Data archive manifest: ten files (both runs' `data.npz`, `data_meta.json`,
+   champion `candidate.py`, `params.json`, `predictions.npz`), sizes and
+   SHA-256, about 1.95 GB, in `docs/replication.md` 2.7 with the Zenodo deposit
+   steps. The deposit itself needs David's account and is pending; the DOI slot
+   is marked.
+4. `docs/replication.md`: the three levels with commands, the expected
+   headline numbers, where Level 2 can diverge (HDOP, row-level rebuild
+   differences, GPU jitter), the Level 3 caveat that the search is not
+   replayable and the audit trail that replaces replay, and a task table.
+   README gains a "Replication" section pointing there. CLAUDE.md gains a
+   "Replication tasks (keep current)" rule so the guide and lock file are
+   updated in the same session as any change to runs, protocols or data.
+
+### 16:00 Replication: three levels, and what the paper must say
+
+David: "how would someone replicate this research?" then "make a note of these
+three levels in my research notes."
+
+Everything below the commit `7b4baa3` (pushed to GitHub) is the state being
+described.
+
+**Level 1, regenerate the paper's numbers and figures from the repository.**
+`results.json` for the science and calval baselines runs, the solo-versus-pooled
+comparisons, and the per-seed metadata are tracked. `scripts/baselines_figures.py`
+reproduces fig1 to fig7 from them with no data download and no GPU. The research
+log records every protocol decision in order; `docs/figures/baselines/README.md`
+says what each model regresses against what. Fully covered today; a reviewer can
+do it in an afternoon.
+
+**Level 2, rebuild the data and retrain the champion and the baselines.**
+Possible from public sources, with effort. SWOT L3 Expert v3 from AVISO over
+SFTP (free account; `scripts/build_science_colocations.py`, credentials from
+`AVISO_USER`/`AVISO_PW`); pass selection from the tracked orbit shapefiles.
+ERA5 winds and GOES SST from anonymous public S3 (`build_era5_winds.py`,
+`build_goes_sst.py`). DUACS from Copernicus Marine, free account
+(`duacs_pull.py`). The weak link is the HF radar: the project reads hourly
+aggregates built from raw HFRNet files that live only locally and on Z:, with
+the aggregates in a private S3 bucket. A replicator must pull the networks from
+the HFRNet THREDDS server and run `aggregate_hfr.py` and `build_hfr_multires.py`;
+the README names the source but has no turnkey command for that first hop. After
+the mirrors exist, the pipeline, 25-hour detiding, stencil flattening and
+temporal split are deterministic code. The champion is retrainable without the
+search: its `candidate.py`, `params.json` and the pooled-data recipe are tracked,
+and `solo_vs_pooled.py` / `animate_evolve_champion.py` retrain it with seeds
+42, 43, 44. Budget: about 100 GB disk, a modest GPU, a few days, mostly
+downloads.
+
+**Level 3, rerun the evolutionary search.** Not replicable in the strict sense,
+and the paper should say so. The mutator is an LLM, the search is stochastic, a
+second run yields a different champion with a different architecture and
+fitness. What is replicable is the procedure and the claim: LLM-guided search
+over the training code with the buffered per-region fitness finds a model that
+beats the linear ladder by the reported margins. The tracked `database.jsonl`
+holds every candidate, its idea, metrics and parent, so the champion's lineage
+is auditable even though the search cannot be replayed. Present it as artifact
+plus provenance plus harness, which is the standard framing for this class of
+result.
+
+**Gaps to close before a preprint (not yet done).** (1) A pinned environment:
+`pyproject.toml` has unversioned dependencies and torch+CUDA is installed by
+hand; a `pip freeze` lock and the Python version remove the most common failure.
+(2) A documented HFRNet-to-aggregate command so the radar side has the one-line
+recipe the SWOT and wind sides have. (3) A DOI'd archive (Zenodo) of the frozen
+`data.npz` (about 1.4 GB) and champion predictions so Level 2 can start from the
+exact rows rather than a rebuild that may differ by a few rows. (4) A short
+`docs/replication.md` walking the three levels and stating the Level 3 caveat.
+
 ### 15:20 Group E leftovers; bathymetry and orbit data checked
 
 David: "finish up with E" and "we don't need the bathymetry? or orbit data?"

@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import time as _time
 from pathlib import Path
@@ -27,7 +28,7 @@ from pathlib import Path
 import netCDF4
 import numpy as np
 
-DATA_ROOT = Path(r"C:\Users\david\Documents\columbiaocean\HFR\Code\Data")
+DATA_ROOT = Path(os.environ.get("HFR_DATA_ROOT", r"C:\Users\david\Documents\columbiaocean\HFR\Code\Data"))
 AGG_ROOT = DATA_ROOT / "aggregated_hfr"
 S3_BUCKET = "swot-ai-ssv"
 

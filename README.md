@@ -115,6 +115,12 @@ pkill -f "streamlit run"                 # stop by name
 
 ---
 
+## Replication
+
+`docs/replication.md` walks three levels: regenerate the figures from tracked results (minutes), rebuild the data and retrain the champion from public sources (days), and rerun the LLM-guided search (not replayable; audit trail in `database.jsonl`). Exact package versions: `requirements-lock.txt`. Data archive manifest with SHA-256: section 2.7 there.
+
+---
+
 ## File hierarchy
 
 ```
@@ -482,4 +488,4 @@ The supervised-learning targets: HFR `u`/`v` interpolated onto each pass's SWOT 
 | `aggregate_hfr.py` | raw hourly HFRNet files → single full-period archives (multi-grid-era aware, memory-bounded streaming, crash-resumable) |
 | `build_hfr_multires.py` | per-resolution colocation targets built from the local raw hourly archives |
 
-AVISO source: `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` (SFTP; set `AVISO_USER` and `AVISO_PW` in the environment, nothing is stored in the repo). Raw hourly HFR source files are kept locally under `HFR/Code/Data/*_Resolution_hourly/` (not on S3).
+AVISO source: `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` (SFTP; set `AVISO_USER` and `AVISO_PW` in the environment, nothing is stored in the repo). Raw hourly HFR source files are kept locally under `HFR/Code/Data/*_Resolution_hourly/` (not on S3); set `HFR_DATA_ROOT` to point the two HFR scripts elsewhere. Public route from HFRNet THREDDS: `docs/replication.md` section 2.3.

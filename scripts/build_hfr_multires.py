@@ -36,7 +36,7 @@ import xarray as xr
 from swotxai.data_utils import hfr_on_swot
 from swotxai.pipeline.io_utils import _save
 
-RAW_ROOT = Path(r"C:\Users\david\Documents\columbiaocean\HFR\Code\Data")
+RAW_ROOT = Path(os.environ.get("HFR_DATA_ROOT", r"C:\Users\david\Documents\columbiaocean\HFR\Code\Data"))
 
 # (region, res) -> raw hourly folder. Defaults (6km, gak 2km) are built by
 # build_science_colocations.py; these are the additional resolutions.
