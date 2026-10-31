@@ -78,6 +78,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--pooled", default=None, choices=["calval", "science"],
                    help="pool ALL trainable regions of a mission into one dataset "
                         "(per-region temporal splits; per-region metrics recorded)")
+    p.add_argument("--fitness", default="pooled", choices=["pooled", "per_region_buffered"],
+                   help="pooled: legacy mean R2 over all held-out rows; per_region_buffered: the paper "
+                        "protocol (mean over regions of per-region R2 on SWOT-valid rows >= buffer after training)")
+    p.add_argument("--fitness-buffer-days", type=float, default=30.0)
+    p.add_argument("--regions", default=None,
+                   help="comma-separated subset of the pooled mission's regions (data prep AND fitness); "
+                        "e.g. uswc,usegc,prvi,ushi drops gak/glna (no SWOT coverage at their radar cells)")
     p.add_argument("--wildcard-every", type=int, default=4,
                    help="every Nth candidate is a structural explorer (prompted to try a "
                         "fundamentally different architecture instead of refining; 0 = off)")
@@ -170,7 +177,8 @@ def main() -> int:
         from swotxai.evolve.harness import prepare_pooled_data
         config = _load_config_with_overrides(args)
         log(f"Preparing pooled {args.pooled} arrays (all trainable regions, cached/local)...")
-        data_npz = prepare_pooled_data(config, args.pooled, run_dir)
+        regions = [r.strip() for r in args.regions.split(",")] if args.regions else None
+        data_npz = prepare_pooled_data(config, args.pooled, run_dir, regions=regions)
         data_meta = json.loads((run_dir / "data_meta.json").read_text(encoding="utf-8"))
     else:
         config = _load_config_with_overrides(args)
@@ -216,6 +224,8 @@ def main() -> int:
         train_max_epochs=args.train_max_epochs, timeout_min=args.timeout_min,
         seed=args.seed, device=args.device, wildcard_every=args.wildcard_every,
         data_meta=data_meta,
+        fitness=args.fitness, fitness_buffer_days=args.fitness_buffer_days,
+        fitness_regions=([r.strip() for r in args.regions.split(",")] if args.regions else None),
     )
     best = run_evolution(db, data_npz, mutator, settings, log=log)
 

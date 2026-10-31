@@ -35,6 +35,9 @@ class EvolveSettings:
     explore_prob: float = 0.2   # chance of picking a random (non-top) parent
     wildcard_every: int = 4     # every Nth candidate is a structural explorer (0 = off)
     data_meta: dict = field(default_factory=dict)
+    fitness: str = "pooled"            # "pooled" (legacy mean R2 over all held-out rows) or "per_region_buffered"
+    fitness_buffer_days: float = 30.0
+    fitness_regions: list | None = None  # subset scored by per_region_buffered (None = all regions in the pool)
 
 
 def _select_parent(db: EvolveDB, settings: EvolveSettings, rng: random.Random) -> CandidateRecord:
@@ -58,7 +61,8 @@ def _select_inspiration(db: EvolveDB, parent: CandidateRecord) -> CandidateRecor
 def evaluate_candidate(db: EvolveDB, rec: CandidateRecord, code: str,
                        data_npz: Path, Y_test: np.ndarray,
                        settings: EvolveSettings, log,
-                       X_test: np.ndarray | None = None) -> CandidateRecord:
+                       X_test: np.ndarray | None = None,
+                       test_time: np.ndarray | None = None) -> CandidateRecord:
     """Write, screen, run, and score one candidate; appends to the DB."""
     cand_dir = db.candidate_dir(rec.candidate_id)
     (cand_dir / "candidate.py").write_text(code, encoding="utf-8")
@@ -108,6 +112,16 @@ def evaluate_candidate(db: EvolveDB, rec: CandidateRecord, code: str,
                                score_predictions(pred[idx], Y_test[idx]).items()
                                if k != "fitness"}
         rec.metrics["per_region"] = per_region
+    if settings.fitness == "per_region_buffered":
+        if X_test is None or test_time is None or not slices:
+            raise RuntimeError("fitness=per_region_buffered needs a pooled data.npz with test_time "
+                               "(re-freeze the run with the 2026-10-29 harness)")
+        from swotxai.evolve.harness import protocol_fitness
+        prot = protocol_fitness(pred, Y_test, X_test, test_time, settings.data_meta,
+                                settings.fitness_buffer_days, settings.fitness_regions)
+        rec.metrics["fitness_pooled"] = rec.metrics["fitness"]
+        rec.metrics["fitness_protocol"] = prot
+        rec.metrics["fitness"] = prot["fitness"]
     rec.fitness = rec.metrics["fitness"]
     rec.status = "ok"
     db.append(rec)
@@ -120,6 +134,7 @@ def run_evolution(db: EvolveDB, data_npz: Path, mutator, settings: EvolveSetting
     rng = random.Random(settings.seed)
     _data = np.load(data_npz)
     Y_test, X_test = _data["Y_test"], _data["X_test"]
+    test_time = _data["test_time"] if "test_time" in _data else None
     del _data
     t_start = time.time()
 
@@ -138,7 +153,7 @@ def run_evolution(db: EvolveDB, data_npz: Path, mutator, settings: EvolveSetting
                                   idea="Seed: port of the production MLP + train_ann.")
             log("gen000_00: evaluating seed candidate...")
             rec = evaluate_candidate(db, rec, seed_code, data_npz, Y_test, settings, log,
-                                     X_test=X_test)
+                                     X_test=X_test, test_time=test_time)
             if rec.ok:
                 log(f"  seed fitness {rec.fitness:.4f} "
                     f"(r2_u {rec.metrics['r2_u']:.4f}, r2_v {rec.metrics['r2_v']:.4f}, "
@@ -204,7 +219,7 @@ def run_evolution(db: EvolveDB, data_npz: Path, mutator, settings: EvolveSetting
                     idea=("[wildcard] " + idea) if wildcard else idea, llm=usage,
                 )
                 rec = evaluate_candidate(db, rec, code, data_npz, Y_test, settings, log,
-                                         X_test=X_test)
+                                         X_test=X_test, test_time=test_time)
 
                 n_done_evolved += 1
                 best = db.best()

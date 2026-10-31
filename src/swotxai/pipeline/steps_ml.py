@@ -9,6 +9,8 @@ import threading
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
+
 from swotxai.config import SWOTConfig
 from swotxai.pipeline.io_utils import _save, _load, _cached
 
@@ -25,6 +27,53 @@ def _flatten_lock(path: Path) -> threading.Lock:
     key = str(Path(path).absolute())
     with _FLATTEN_LOCKS_GUARD:
         return _FLATTEN_LOCKS.setdefault(key, threading.Lock())
+
+
+def pass_time(ds):
+    """Scalar pass time of a per-pass dataset as datetime64[ns], or None."""
+    try:
+        return np.datetime64(np.atleast_1d(ds.coords["time"].values)[0], "ns")
+    except (KeyError, AttributeError, TypeError, ValueError):
+        return None
+
+
+_PAIR_MAX_HOURS = 1.0   # HFR is hourly; a pass crosses a box in ~1 min, so a true match is <= 0.5 h away
+
+
+def _pair_by_time(hfr_list: list, swot_list: list, cb: ProgressCb) -> list:
+    """Pair each SWOT pass with the HFR entry nearest in time (within _PAIR_MAX_HOURS).
+
+    The HFR colocation build drops passes it cannot match, so the two lists
+    are not position-aligned; pairing by list position (the pre-2026-10-29
+    behaviour) shifted every later pass of a thinned cycle onto the wrong
+    radar field (offsets up to +447 h in prvi). Entries without a usable
+    time coordinate fall back to positional pairing for backward
+    compatibility; unmatched SWOT passes are skipped and counted.
+    """
+    _t = pass_time
+    hfr_times = [(_t(h) if h is not None else None) for h in hfr_list]
+    if all(t is None for t in hfr_times):
+        return list(zip(hfr_list, swot_list))
+    pairs, skipped = [], 0
+    for i, swot_ds in enumerate(swot_list):
+        st = _t(swot_ds) if swot_ds is not None else None
+        if st is None:
+            pairs.append((hfr_list[i] if i < len(hfr_list) else None, swot_ds))
+            continue
+        best, best_dt = None, None
+        for h, ht in zip(hfr_list, hfr_times):
+            if ht is None:
+                continue
+            dt = abs((ht - st) / np.timedelta64(1, "h"))
+            if best_dt is None or dt < best_dt:
+                best, best_dt = h, dt
+        if best is not None and best_dt <= _PAIR_MAX_HOURS:
+            pairs.append((best, swot_ds))
+        else:
+            skipped += 1
+    if skipped:
+        cb("flatten", 0.0, f"{skipped} SWOT pass(es) had no HFR field within {_PAIR_MAX_HOURS:g} h - skipped")
+    return pairs
 
 
 def step_flatten(
@@ -86,13 +135,13 @@ def step_flatten(
             if not hfr_list or not swot_list:
                 continue
             flat_list = []
-            for hfr_ds, swot_ds in zip(hfr_list, swot_list):
+            for hfr_ds, swot_ds in _pair_by_time(hfr_list, swot_list, cb):
                 if hfr_ds is None or swot_ds is None:
                     continue
                 hfr_ds = hfr_ds.compute(scheduler="threads")
-                flat_list.append(
-                    rf_flattening_stencil(swot_ds, hfr_ds["u"], hfr_ds["v"], effective_features, config.stencil_k)
-                )
+                entry = rf_flattening_stencil(swot_ds, hfr_ds["u"], hfr_ds["v"], effective_features, config.stencil_k)
+                entry["time"] = pass_time(swot_ds)   # additive: lets the evolve harness apply a temporal buffer
+                flat_list.append(entry)
             flattened[t] = flat_list
 
         _save(flattened, cache_path)

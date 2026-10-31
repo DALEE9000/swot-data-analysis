@@ -1,0 +1,45 @@
+{
+  "run": "evolve_all_science_v1",
+  "candidate": "gen031_00",
+  "n_test": 1301098,
+  "method": "grouped permutation (all stencil cells of a feature shuffled together, shared permutation), scored on the temporal holdout",
+  "baseline": {
+    "r2_u": 0.4055173993110657,
+    "r2_v": 0.48614662885665894,
+    "fitness": 0.4458320140838623
+  },
+  "importance": {
+    "mdt": {
+      "delta_r2_u": 0.23560553789138794,
+      "delta_r2_v": 0.362962007522583
+    },
+    "ssha_filtered": {
+      "delta_r2_u": 0.009315431118011475,
+      "delta_r2_v": 0.012288391590118408
+    },
+    "ugos_filtered": {
+      "delta_r2_u": 0.8700221180915833,
+      "delta_r2_v": 0.05426359176635742
+    },
+    "vgos_filtered": {
+      "delta_r2_u": 0.21574509143829346,
+      "delta_r2_v": 0.24342292547225952
+    },
+    "ugosa_filtered": {
+      "delta_r2_u": 0.19709104299545288,
+      "delta_r2_v": 0.03371071815490723
+    },
+    "vgosa_filtered": {
+      "delta_r2_u": 0.08356732130050659,
+      "delta_r2_v": 0.032040178775787354
+    },
+    "era5_u": {
+      "delta_r2_u": 0.06239897012710571,
+      "delta_r2_v": 0.044277310371398926
+    },
+    "era5_v": {
+      "delta_r2_u": 0.09959304332733154,
+      "delta_r2_v": 0.130071222782135
+    }
+  }
+}

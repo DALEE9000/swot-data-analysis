@@ -90,7 +90,7 @@ def find_swaths(sw_corner, ne_corner, path_to_sph_file="./orbit_data/sph_science
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def download_passes(pass_ID, cycle="001", remote_path="swot_products/l3_karin_nadir/l3_lr_ssh/v1_0_2/Unsmoothed",
                     save_path=f"../../SWOT_L3/Unsmoothed/cycle_001", hostname="ftp-access.aviso.altimetry.fr",
-                    port=2221, username="tdmonkman@uchicago.edu", password="2prSvl",
+                    port=2221, username=os.environ.get("AVISO_USER"), password=os.environ.get("AVISO_PW"),
                     subset=False, lat_lims=False, trim_suffix="trimmed"):
     """
     Downloads SWOT passes from the AVISO+ FTP server using SFTP.
@@ -261,8 +261,8 @@ warnings.filterwarnings("ignore")
 ssh_kwargs = {
               "hostname":"ftp-access.aviso.altimetry.fr",
               "port": 2221,
-              "username":"tdmonkman@uchicago.edu",
-              "password":"2prSvl"
+              "username": os.environ.get("AVISO_USER"),
+              "password": os.environ.get("AVISO_PW")
             }
 
 # Define bounding domain

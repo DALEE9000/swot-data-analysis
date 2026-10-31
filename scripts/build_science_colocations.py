@@ -43,8 +43,8 @@ from swotxai.pipeline.io_utils import _save
 # ---------------------------------------------------------------------------
 AVISO_HOST = "ftp-access.aviso.altimetry.fr"
 AVISO_PORT = 2221
-AVISO_USER = os.environ.get("AVISO_USER", "tdmonkman@uchicago.edu")
-AVISO_PW   = os.environ.get("AVISO_PW", "2prSvl")
+AVISO_USER = os.environ.get("AVISO_USER")
+AVISO_PW   = os.environ.get("AVISO_PW")
 REMOTE_ROOT = "swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc"
 
 S3_BUCKET = "swot-ai-ssv"

@@ -1,0 +1,21 @@
+{
+  "n_train": 168021,
+  "n_test": 76647,
+  "n_inputs": 72,
+  "features": [
+    "mdt",
+    "ssha_filtered",
+    "ugos_filtered",
+    "vgos_filtered",
+    "ugosa_filtered",
+    "vgosa_filtered",
+    "era5_u",
+    "era5_v"
+  ],
+  "stencil_k": 3,
+  "region": "prvi",
+  "mission": "science",
+  "cycles_start": 1,
+  "cycles_end": 16,
+  "train_fraction": 0.8
+}

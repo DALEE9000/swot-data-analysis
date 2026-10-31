@@ -167,33 +167,24 @@ CLAUDE.md
 **/.claude/
 
 ########################################################################################
-# Large datasets for use in plotting and locating SWOT data
-# These include /orbit_data/, which contains the shapefiles for the SWOT orbit
-# as well as /ne_10m_bathymetry_all/, which contains some bathymetry maps for
-# plotting using cartopy
-/examples/
-/movies/
-/old_movies/
-/data/
+# Scratch and parked folders live under /archive/ (rule below); nothing else
+# loose at the top level. Static assets orbit_data/ and ne_10m_bathymetry_all/
+# are tracked.
 *.pkl
 *.joblib
 *.gif
-/SWOT_hf_plotting/
-/swot_documentation/
-/scratch_notebooks/
 
 # Data artifacts — S3 mirrors, colocations, model weights, media outputs.
 # (experiments/registry stays tracked: small provenance jsonl/csv)
 /experiments/*
 !/experiments/registry/
+# Parked one-off output and scratch (see docs/cleanup-plan.md)
+/archive/
 /frames/
 /animations/
-/images/
 /papers/
-/notebooks/
 /SWOT_L3/
 /cache/
-/SWOTxAI/
 *.nc
 *.nc4
 *.pt
@@ -209,6 +200,9 @@ CLAUDE.md
 !/experiments/evolve/
 /experiments/evolve/**/data.npz
 /experiments/evolve/**/predictions.npz
+# champion animation/solo-retrain arrays (regenerable, see scripts/animate_evolve_champion.py)
+/experiments/evolve/**/*.npz
 # re-include run logs past the global *.log rule (per-candidate stdout.log stays ignored)
 !/experiments/evolve/*/full_run.log
 
+*.err

@@ -119,59 +119,69 @@ pkill -f "streamlit run"                 # stop by name
 
 ```
 SWOT-data-analysis/
-│
-├── app.py                          # Streamlit GUI entry point (3 tabs: Pipeline, Results, Animation + Batch)
+├── app.py                          # Streamlit GUI entry point
 ├── config.yaml                     # Template config — copy and edit for your run
 ├── pyproject.toml                  # Package metadata and dependencies
+├── CLAUDE.md                       # Working rules for the coding agent (S3 cost rule, research log)
 │
 ├── src/
-│   ├── swotxai/                    # Main ML pipeline package
-│   │   ├── pipeline.py             # 12-step pipeline orchestrator + step-level pickle cache
+│   ├── swotxai/                    # Main ML package
 │   │   ├── config.py               # SWOTConfig dataclass; load_config / save_config (YAML)
-│   │   ├── swotxai_utils.py        # Core ML logic: regrid, interp_to_swot, RF flatten/train/predict
-│   │   ├── animation_utils.py      # Frame generation (generate_frames) and MP4 assembly
-│   │   └── batch.py                # Batch mode — parallel hyperparameter sweep over shared data steps
-│   │
-│   └── swot/                       # Legacy SWOT utilities (used by examples/ notebooks)
-│       ├── data_loaders.py         # SWOT L3 NetCDF loading and subsetting
-│       ├── download_swaths.py      # Pass / swath selection from orbit shapefiles
-│       ├── swot_utils.py           # General SWOT utility functions
-│       ├── interp_utils.py         # Interpolation helpers
-│       ├── plotting_scripts.py     # Cartopy-based plotting utilities
-│       ├── download_VIIRS.py       # VIIRS SST download from THREDDS
-│       ├── thredds.py              # THREDDS server access
-│       └── download_swot_orbit.sh  # Shell script to fetch orbit shapefiles
+│   │   ├── pipeline/               # 12-step cached pipeline: orchestrator, steps_data, steps_ml, steps_viz
+│   │   ├── models/{rf,ann}/        # Backends: random forest, PyTorch MLP (weights + training code)
+│   │   ├── evolve/                 # AlphaEvolve harness: loop, mutator, sandbox, candidate database
+│   │   ├── data_utils.py           # Regrid, interpolation, stencil flattening
+│   │   ├── animation_utils.py      # Frame generation and MP4 assembly
+│   │   ├── presets.py / multiregion.py / batch.py / experiments.py
+│   │   └── swotxai_utils.py        # Older RF helpers still imported by the pipeline
+│   └── swot/                       # Legacy SWOT utilities; find_swaths() is still used by the pipeline
 │
-├── orbit_data/                     # SWOT orbit shapefiles (not tracked)
-│   ├── sph_calval_swath.zip        #   1-day repeat calibration/validation phase
-│   └── sph_science_swath.zip       #   21-day science phase
+├── scripts/                        # Command-line entry points (index below)
+├── tests/
 │
-├── cache/                          # Step-level pickle cache (not tracked)
-│   └── <run_id>/                   #   one subdirectory per run_id
-│       ├── cycle_data.pkl
-│       ├── swot_regridded.pkl
-│       ├── era5.pkl
-│       ├── goes.pkl
-│       ├── swot_features.pkl
-│       ├── hfr_interp.pkl
-│       ├── flattened.pkl
-│       ├── rf_u.pkl / rf_v.pkl
-│       ├── rf_meta.pkl
-│       └── inference.pkl
+├── docs/
+│   ├── research-log.md             # Dated log of every change and finding (newest first)
+│   ├── research-plan.md            # Phased plan with tick-boxes
+│   ├── glossary.md  model-data.md  preprint-style-checklist.md
+│   ├── cleanup-plan.md             # This layout and what moved where
+│   ├── updates/                    # Dated research-update memos
+│   └── figures/
+│       ├── baselines/              # fig1–fig7 + README describing each (scripts/baselines_figures.py)
+│       ├── poster/                 # Fitness scatter, architecture, importances (scripts/poster_figures.py)
+│       └── regions/                # Region-overview maps
 │
-├── experiments/                    # Per-region data mirrors, model weights, registry
-│   ├── {region}/                   #   swot_cycles/ hfr_target/ era5/ goes/ (S3 mirrors)
-│   │   └── {rf,ann}/               #   trained model weights + inference per backend
+├── papers/                         # PDF library + NOTES.md; handbooks/ holds the SWOT L3 product docs
+├── orbit_data/                     # SWOT orbit shapefiles (sph_calval_swath.zip, sph_science_swath.zip)
+├── ne_10m_bathymetry_all/          # Natural Earth bathymetry shapefiles for cartopy plots
+│
+├── experiments/                    # Data mirrors and runs (not tracked except evolve/ provenance + registry/)
+│   ├── {region}/                   #   swot_cycles/ hfr_target/ era5/ goes/ duacs/ flattened/ {rf,ann}/
+│   ├── evolve/{run}/               #   candidates/ solo/ baselines/ database.jsonl state.json logs
 │   └── registry/{rf,ann}/          #   experiments.jsonl + experiments_summary.csv (tracked)
-├── scripts/                        # Data campaign tooling (colocation, aggregation, ERA5/GOES)
-├── notebooks/                      # Analysis notebooks
-├── frames/                         # PNG animation frames output
-├── animations/                     # Assembled MP4s
-├── figures/                        # Region overview figures
-├── scratch_notebooks/              # Development scratch scripts
-├── examples/                       # Tutorial notebooks (not tracked)
-└── swot_documentation/             # Reference documentation and notes
+├── cache/                          # Step-level pickle cache (not tracked); delete a file to recompute a step
+├── frames/  animations/            # PNG frames and MP4s per region/backend/run (not tracked)
+└── archive/                        # Parked one-off output, scratch notebooks, old movies (not tracked)
 ```
+
+### Scripts index
+
+| Script | Does | Writes to |
+|---|---|---|
+| `evolve.py` | AlphaEvolve search over the ANN training code; resumable by `--name` | `experiments/evolve/{run}/` |
+| `solo_vs_pooled.py` | Retrain a run's champion per region (solo) for comparison with the pooled model | `experiments/evolve/{run}/solo/` |
+| `baselines_eval.py` | Phase-1 table: baseline ladder, holdout protocols, block bootstrap | `experiments/evolve/{run}/baselines/results.{json,md}` |
+| `baselines_figures.py` | fig1–fig7 from the baselines results | `docs/figures/baselines/` |
+| `hfr_tiers.py` | Alternative HFR truth tiers (raw, 25-h, Butterworth) for held-out rows | `experiments/evolve/{run}/baselines/tiers_{region}.npz` |
+| `duacs_pull.py` | DUACS L4 daily geostrophy per region from Copernicus Marine | `experiments/{region}/duacs/` |
+| `animate_evolve_champion.py` | Retrain champion, run inference + animate every region | `frames/`, `animations/{region}/ann/evolve_{cid}/` |
+| `champion_importance.py` | Grouped permutation importance for a champion | `docs/figures/poster/champion_importance.{json,png,svg}` |
+| `poster_figures.py` | Fitness-vs-candidate scatter and architecture diagrams | `docs/figures/poster/` |
+| `build_science_colocations.py` | Science-phase SWOT × HFR colocation campaign (S3; cost rule applies) | `experiments/{region}/swot_cycles/`, `hfr_target/` |
+| `build_hfr_multires.py` | 25-h HFR targets at every available radar resolution | `experiments/{region}/hfr_target/` |
+| `build_era5_winds.py` | ERA5 10-m winds per region from the public NCAR mirror | `experiments/{region}/era5/` |
+| `build_goes_sst.py` | GOES SST at SWOT pass hours from NOAA public S3 | `experiments/{region}/goes/` |
+| `aggregate_hfr.py` | Aggregate raw hourly HFR files into per-(region, resolution) NetCDFs | S3 `HFR/` (cost rule applies) |
+| `repartition_usegc1km.py` | One-off: resplit the two usegc 1-km aggregate segments at 2020-01-01 | S3 `HFR/` |
 
 ---
 
@@ -241,6 +251,16 @@ python scripts/evolve.py --config config.yaml --name evolve_uswc_v1 \
 # first; --budget-usd is a hard cap checked before every API call:
 python scripts/evolve.py --config config.yaml --name evolve_uswc_v1 \
     --mutator claude-api --generations 10 --children 4 --budget-usd 10
+
+# Paper-protocol campaign (decided 2026-10-29): pooled science WITHOUT gak/glna
+# (no SWOT geostrophy at their radar cells); fitness = mean over regions of
+# per-region mean(R2_u, R2_v) on SWOT-valid held-out rows >= 30 days after
+# the last training pass (25-h detided HFR target). Candidates also record
+# the legacy pooled score as fitness_pooled and the per-region breakdown:
+python scripts/evolve.py --name evolve_science_protocol_v1 --pooled science \
+    --regions uswc,usegc,prvi,ushi --fitness per_region_buffered --fitness-buffer-days 30 \
+    --features mdt,ssha_filtered,ugos_filtered,vgos_filtered,ugosa_filtered,vgosa_filtered,era5_u,era5_v \
+    --mutator claude-cli --generations 35 --children 4 --timeout-min 60
 ```
 
 Notes:
@@ -249,6 +269,11 @@ Notes:
   it spawns the same detached, resumable process the CLI does.
 - **`--features` / `--stencil-k`** override `config.yaml` per run; a run's
   dataset is frozen at first launch, so changing them requires a new `--name`.
+- **`--fitness per_region_buffered`** needs a dataset frozen by the
+  2026-10-29 harness (it stores per-row pass times as `test_time` in
+  `data.npz` and `region_train_end` in `data_meta.json`); older frozen runs
+  can only use the legacy `pooled` fitness. `--regions` subsets the pooled
+  mission for both the data and the fitness.
 - **Mutators are agent-agnostic** (`--mutator`): `claude-cli` / `codex-cli`
   shell out to a locally installed CLI agent and run on its subscription
   (counts toward its usage windows; $0 per token). `claude-api` needs
@@ -260,6 +285,77 @@ Notes:
 - `--train-max-epochs 60` (default) screens candidates in ~4 min each on the
   GTX 1650 Ti; raise it (or retrain the winner at 200 epochs) for final numbers.
 - All data reads are local (pipeline cache); the evolve loop never touches S3.
+
+### Champion post-processing
+
+```bash
+# Animate every region in the run's pool with the champion (retrains it once
+# on the run's frozen data with the exact run params, then drives the normal
+# inference+animate steps; outputs under animations/{region}/ann/evolve_{cid}):
+python scripts/animate_evolve_champion.py --run evolve_all_science_v1
+
+# Pooled champion vs region-solo models of the same form (same code, params,
+# budget; per-region temporal holdouts identical to the pooled breakdown).
+# Writes experiments/evolve/{run}/solo/comparison.{json,md}:
+python scripts/solo_vs_pooled.py --run evolve_all_science_v1 --seeds 42,43,44
+# Retrain a single-region run's champion on sister regions of the same mission
+# (runs the data steps from local mirrors if no flatten cache exists):
+python scripts/solo_vs_pooled.py --run evolve_uswc_v1 --regions usegc,ushi --seeds 42,43,44
+```
+
+Both are resumable (champion predictions / finished region seeds are
+checkpointed and skipped on rerun) and read only local data.
+
+```bash
+# Phase-1 evaluation (paper baselines): scores the champion and its solo twin
+# against SWOT L3 geostrophy, geostrophy+Ekman (classical 3%/45 deg and a
+# least-squares wind fit), a ridge on the 72 stencil columns, wind-only and
+# training-mean baselines -- on identical held-out rows, under all-test and
+# 30-day-buffered protocols, on all rows and on the SWOT-valid subset, with
+# block-bootstrap CIs over (cycle, pass) and an effective-N estimate.
+# Needs solo/{rid}/data.npz from solo_vs_pooled.py. Replays per-row
+# cycle/pass/time/lat/lon from the cached inputs (checkpointed as
+# baselines/meta_{rid}.npz) and asserts it reproduces Y_test exactly.
+# Writes experiments/evolve/{run}/baselines/results.{json,md}:
+python scripts/baselines_eval.py --run evolve_all_science_v1
+python scripts/baselines_eval.py --selftest   # metric + bootstrap self-check
+# Calval (1-day repeat) table: single-region run; the record ends 3 weeks
+# after training so the buffer is 7 days, not 30:
+python scripts/baselines_eval.py --run evolve_uswc_v1 --buffer-days 7
+# Sister regions of a single-region run (usegc, ushi calval) are added by
+# retraining its champion there first (below), then --regions uswc,usegc,ushi.
+
+# HFR truth tiers for the held-out rows (raw hourly, 18-h and 48-h zero-phase
+# Butterworth, plus a rebuilt 25-h mean that must reproduce the stored
+# target exactly) from the hourly HFRNet files on the external drive
+# (Z:\data_repository\columbia_oceanography\HFR\Code\Data). Writes
+# baselines/tiers_{rid}.npz; baselines_eval.py picks them up automatically:
+python scripts/hfr_tiers.py --regions uswc,usegc,prvi,ushi
+
+# DUACS L4 daily geostrophy (Copernicus Marine, free account; run
+# `Scripts/copernicusmarine.exe login` once in a real terminal). Writes
+# experiments/{rid}/duacs/*.nc; baselines_eval.py adds duacs_* baselines
+# when the file exists:
+python scripts/duacs_pull.py
+# Calval window (the eval concatenates every duacs_l4_{rid}_*.nc it finds):
+python scripts/duacs_pull.py --regions uswc,usegc,ushi --start 2023-03-01T00:00:00 --end 2023-08-31T23:59:59
+
+# Paper figures for the baselines (docs/figures/baselines/*.png|svg; the
+# README there describes each one):
+python scripts/baselines_figures.py --run evolve_all_science_v1
+```
+
+```bash
+# Poster/paper figures (white background, Computer Modern):
+# fitness-vs-candidate scatter + champion architecture diagram
+# -> docs/figures/poster/*.png (300 dpi) and *.svg
+python scripts/poster_figures.py --run evolve_all_science_v1
+
+# Champion feature importances (grouped permutation on the temporal holdout;
+# retrains the champion once ~20 min GPU, then checkpointed in
+# docs/figures/poster/champion_importance.json — replotting is instant):
+python scripts/champion_importance.py --run evolve_all_science_v1
+```
 
 ---
 
@@ -386,4 +482,4 @@ The supervised-learning targets: HFR `u`/`v` interpolated onto each pass's SWOT 
 | `aggregate_hfr.py` | raw hourly HFRNet files → single full-period archives (multi-grid-era aware, memory-bounded streaming, crash-resumable) |
 | `build_hfr_multires.py` | per-resolution colocation targets built from the local raw hourly archives |
 
-AVISO source: `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` (SFTP; credentials in `src/swot/download_swaths.py`). Raw hourly HFR source files are kept locally under `HFR/Code/Data/*_Resolution_hourly/` (not on S3).
+AVISO source: `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` (SFTP; set `AVISO_USER` and `AVISO_PW` in the environment, nothing is stored in the repo). Raw hourly HFR source files are kept locally under `HFR/Code/Data/*_Resolution_hourly/` (not on S3).

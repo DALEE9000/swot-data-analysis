@@ -1,0 +1,1 @@
+{"seed": 42, "device": "cuda", "max_epochs": 60, "time_budget_s": 1620.0}

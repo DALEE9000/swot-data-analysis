@@ -14,8 +14,8 @@ warnings.filterwarnings("ignore")
 ssh_kwargs = {
     "hostname": "ftp-access.aviso.altimetry.fr",
     "port": 2221,
-    "username": "tdmonkman@uchicago.edu",
-    "password": "2prSvl"
+    "username": os.environ.get("AVISO_USER"),
+    "password": os.environ.get("AVISO_PW")
 }
 version = "v2_0_1"
 product = "Unsmoothed"

@@ -95,6 +95,8 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
     regions = regions or MISSION_REGIONS[mission]
 
     parts: dict[str, tuple] = {}
+    test_times: dict[str, np.ndarray] = {}
+    train_end: dict[str, str | None] = {}
     n_cols = None
     for i, rid in enumerate(regions):
         rcfg = replace(base_config, **config_overrides(rid, mission))
@@ -104,6 +106,10 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
         try:
             flat = step_flatten(rcfg, shared["hfr_interp_data"],
                                 shared["swot_features"], rcb, True)
+            keys = list(flat.keys())
+            n_tr_keys = max(1, int(len(keys) * train_fraction))
+            t_tr = _row_times(flat, keys[:n_tr_keys], shared["swot_features"])
+            t_te = _row_times(flat, keys[n_tr_keys:], shared["swot_features"])
         finally:
             _cleanup_shared_cache(rcfg)
             shared.clear()
@@ -127,6 +133,9 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
                 "features (check ERA5/GOES availability)."
             )
         parts[rid] = tuple(a.astype(np.float32) for a in (X_tr, Y_tr, X_te, Y_te))
+        assert len(t_te) == len(X_te) and len(t_tr) == len(X_tr), f"{rid}: row-time replay mismatch"
+        test_times[rid] = t_te
+        train_end[rid] = str(np.datetime64(int(t_tr.max()), "s")) if len(t_tr) else None
 
     if not parts:
         raise RuntimeError("No region produced any training rows.")
@@ -139,6 +148,7 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
     n_chunks = 20
     train_pieces: list[tuple] = []
     test_pieces: list[tuple] = []
+    time_pieces: list[np.ndarray] = []
     region_test_slices: dict[str, list[list[int]]] = {rid: [] for rid in parts}
     pos = 0
     for i in range(n_chunks):
@@ -149,6 +159,7 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
             s, e = len(X_te) * i // n_chunks, len(X_te) * (i + 1) // n_chunks
             if e > s:
                 test_pieces.append((X_te[s:e], Y_te[s:e]))
+                time_pieces.append(test_times[rid][s:e])
                 region_test_slices[rid].append([pos, pos + (e - s)])
                 pos += e - s
 
@@ -156,15 +167,19 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
     Y_train = np.concatenate([p[1] for p in train_pieces])
     X_test = np.concatenate([p[0] for p in test_pieces])
     Y_test = np.concatenate([p[1] for p in test_pieces])
+    test_time = np.concatenate(time_pieces)
     parts.clear()
     train_pieces.clear()
     test_pieces.clear()
     gc.collect()
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    np.savez(data_path, X_train=X_train, Y_train=Y_train, X_test=X_test, Y_test=Y_test)
+    np.savez(data_path, X_train=X_train, Y_train=Y_train, X_test=X_test, Y_test=Y_test,
+             test_time=test_time)
     meta_path.write_text(json.dumps({
         "pooled": True, "mission": mission, "regions": list(region_test_slices),
+        "region_train_end": train_end,
+        "test_time": "data.npz key test_time: per held-out row SWOT pass time, int64 seconds since 1970",
         "row_order": "time-interleaved across regions in 20 chunks "
                      "(later rows = later in the mission window, all regions mixed)",
         "region_test_slices": region_test_slices,
@@ -174,6 +189,71 @@ def prepare_pooled_data(base_config: SWOTConfig, mission: str, run_dir: Path,
         "train_fraction": train_fraction,
     }, indent=2), encoding="utf-8")
     return data_path
+
+
+def _row_times(flat: dict, keys: list, swot_features: dict) -> np.ndarray:
+    """Per-row SWOT pass time (int64 s) for the rows concat_for_ann keeps, in its order.
+
+    Uses entry["time"] (written by step_flatten since 2026-10-29); legacy
+    caches fall back to the SWOT pass list by position (exact for cycles
+    where no pass was skipped, which is every cycle of uswc/usegc/gak).
+    """
+    out = []
+    for t in keys:
+        for j, entry in enumerate(flat[t]):
+            df = entry["df"]
+            valid = (entry["y_u"].reindex(df.index).notna().to_numpy()
+                     | entry["y_v"].reindex(df.index).notna().to_numpy())
+            n = int(valid.sum())
+            if n == 0:
+                continue
+            tm = entry.get("time")
+            if tm is None:
+                try:
+                    tm = np.datetime64(np.atleast_1d(swot_features[t][j].coords["time"].values)[0], "ns")
+                except Exception:  # noqa: BLE001
+                    tm = np.datetime64("NaT")
+            out.append(np.full(n, np.datetime64(tm, "s").astype("int64")))
+    return np.concatenate(out) if out else np.zeros(0, np.int64)
+
+
+def protocol_fitness(pred: np.ndarray, Y_test: np.ndarray, X_test: np.ndarray,
+                     test_time: np.ndarray, meta: dict, buffer_days: float = 30.0,
+                     regions: list[str] | None = None) -> dict:
+    """Paper-protocol fitness (decided 2026-10-29): mean over regions of the
+    per-region mean(R2_u, R2_v) on held-out rows that (a) have finite
+    centre-cell SWOT geostrophy and (b) lie >= buffer_days after the
+    region's last training pass. Regions with too few rows are skipped.
+    The target is whatever Y_test holds (the 25-h detided HFR)."""
+    feats, k = meta["features"], meta["stencil_k"]
+    c = lambda f: feats.index(f) * k * k + k * k // 2
+    if "ugos_filtered" in feats and "vgos_filtered" in feats:
+        swot_ok = np.isfinite(X_test[:, c("ugos_filtered")]) & np.isfinite(X_test[:, c("vgos_filtered")])
+    else:
+        swot_ok = np.ones(len(X_test), bool)
+    ends = meta.get("region_train_end") or {}
+    out = {"buffer_days": buffer_days, "per_region": {}, "regions_used": []}
+    vals = []
+    for rid, spans in (meta.get("region_test_slices") or {}).items():
+        if regions and rid not in regions:
+            continue
+        if spans and not isinstance(spans[0], (list, tuple)):
+            spans = [spans]
+        idx = np.concatenate([np.arange(s, e) for s, e in spans])
+        m = swot_ok[idx]
+        if ends.get(rid):
+            cutoff = np.datetime64(ends[rid]).astype("datetime64[s]").astype("int64") + int(buffer_days * 86400)
+            m &= test_time[idx] >= cutoff
+        idx = idx[m]
+        if len(idx) < 50 or not np.isfinite(Y_test[idx]).any():
+            continue
+        sc = score_predictions(pred[idx], Y_test[idx])
+        sc["n"] = int(len(idx))
+        out["per_region"][rid] = sc
+        out["regions_used"].append(rid)
+        vals.append(sc["fitness"])
+    out["fitness"] = float(np.mean(vals)) if vals else float("nan")
+    return out
 
 
 def score_predictions(pred: np.ndarray, Y_test: np.ndarray) -> dict:
