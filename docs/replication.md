@@ -17,12 +17,12 @@ solo-versus-pooled `comparison.json`, and per-seed `meta.json`/`params.json`.
 ```bash
 pip install -r requirements-lock.txt --extra-index-url https://download.pytorch.org/whl/cu126
 pip install -e .
-python scripts/baselines_figures.py --run evolve_all_science_v1   # fig1..fig7 -> docs/figures/baselines/
+python scripts/baselines_figures.py --run evolve_all_science_v1   # Phase-1 figure set -> docs/figures/science/
 python scripts/poster_figures.py    --run evolve_all_science_v1   # fitness scatter, architecture -> docs/figures/poster/
 ```
 
 What to read alongside: `docs/research-log.md` (every protocol decision, in
-order, with the reason), `docs/figures/baselines/README.md` (what each model
+order, with the reason), `docs/figures/science/README.md` (what each model
 regresses against what, per figure), `docs/glossary.md`.
 
 ## Level 2: rebuild the data, retrain the champion and the baselines
@@ -192,5 +192,6 @@ future searches (research log, that date).
 | HFRNet to aggregate recipe | done 2026-10-31 | section 2.3; `HFR_DATA_ROOT` override in the two HFR scripts |
 | Data archive with DOI | manifest ready; deposit pending | section 2.7, needs the Zenodo account holder |
 | This document | done 2026-10-31 | update when protocols, runs or data change |
-| Calval tables for `usegc`, `ushi` | retrains done, eval pending | `baselines_eval.py --run evolve_uswc_v1 --regions uswc,usegc,ushi --buffer-days 7` |
+| Calval tables for `usegc`, `ushi` | done 2026-11-01 | `baselines_eval.py --run evolve_uswc_v1 --regions uswc,usegc,ushi --buffer-days 7`; figures in `docs/figures/calval/` |
 | Rerun search under the buffered fitness | not started | Phase 2 of `docs/research-plan.md` |
+| Rotary-spectrum figure on real radar data | script + self-test done; render pending Z: | `scripts/hfr_rotary_spectrum.py` |

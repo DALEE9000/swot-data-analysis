@@ -3,7 +3,7 @@
 SWOT-to-surface-velocity project (SWOTxAI). Phase 1 of the preprint plan:
 evaluation protocol, baselines, and what they say about the model. Numbers
 below are in `experiments/evolve/evolve_all_science_v1/baselines/results.md`;
-figures in `docs/figures/baselines/` (README there explains each one);
+figures in `docs/figures/science/` (README there explains each one);
 full narrative in `docs/research-log.md`.
 
 ## What was done

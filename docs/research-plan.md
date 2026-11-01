@@ -48,7 +48,7 @@ the download before doing this week.
 - [x] Mask HDOP > 1.25 (already applied at source by HFRNet at 1.0; no
       HDOP variable survives) and and cells with less than 50 percent temporal coverage
       (Kachelein 2024).
-- [x] Report skill on all three tiers side by side (2026-10-29; fig3). The gap between raw and
+- [x] Report skill on all three tiers side by side (2026-10-29; truth_tiers). The gap between raw and
       18-hour R² is approximately the non-phase-locked tidal floor that no
       snapshot model can reach.
 
@@ -62,7 +62,7 @@ the download before doing this week.
 - [x] Per component and per region: RMSE in m/s, Nash–Sutcliffe R², percent
       RMSE change against each baseline, and R² on the residual
       HFR − ugos (2026-10-28; science mission).
-- [x] Separate tables for the calval and science phases (2026-10-30: calval uswc
+- [x] Separate tables for the calval and science phases (2026-11-01: usegc and ushi calval added, figures in docs/figures/calval; 2026-10-30: calval uswc
       table in `experiments/evolve/evolve_uswc_v1/baselines/`, 7-day buffer;
       usegc and ushi calval retrains running; climatology and per-cell linear
       rungs added to both tables). At 21-day sampling DUACS tends to beat SWOT

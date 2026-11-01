@@ -95,16 +95,16 @@ no saved weights exist for them under the temporal protocol.
 
 ---
 
-## fig1_skill_ladder — how much variance each level of model explains
+## skill_ladder — how much variance each level of model explains
 
-Since 2026-10-30 fig1, fig2 and fig3 use the headline protocol (rows at
+Since 2026-10-30 skill_ladder, rmse_change and truth_tiers use the headline protocol (rows at
 least 30 days after the last training pass, i.e. cycles 15-16) rather than
 all four test cycles; the unbuffered numbers remain in `results.md`.
 
 Row labels carry two lines: the model name, then its predictors (the
 right-hand side of the regression) with the fitted parameter count; the
 caption restates that the target is the same in every row. The same
-convention is used in fig2 (two-line labels), fig3 (legend) and fig6
+convention is used in rmse_change (two-line labels), truth_tiers (legend) and benchmark_grid
 (label: predictors). Symbols: g SWOT L3 geostrophy, d DUACS L4, W ERA5
 wind; see "What is regressed against what" above.
 
@@ -136,7 +136,7 @@ data.
 
 ---
 
-## fig2_rmse_change — the same comparison in the field's currency
+## rmse_change — the same comparison in the field's currency
 
 **What it shows.** Percent change in root-mean-square error relative to
 the calibrated SWOT L3 geostrophic velocity on the same rows. Negative bars
@@ -153,7 +153,7 @@ comes from adding wind, with the same roughly 8 percent (u) and 19 percent
 
 ---
 
-## fig3_truth_tiers — skill as a function of the truth's timescale
+## truth_tiers — skill as a function of the truth's timescale
 
 **What it shows.** The same predictions scored against four versions of
 the radar truth: the raw hourly field at the hour nearest the pass; an
@@ -165,7 +165,7 @@ drive and sampled at the pass hour. Two models are drawn, the evolved MLP
 Rows are the subset where all four tiers are defined, so differences
 between tiers are not coverage differences; that subset is smaller than
 the main table, and on the East and Gulf Coast it is the well-covered 27
-percent of rows, where skill is higher than in fig1.
+percent of rows, where skill is higher than in skill_ladder.
 
 **How to read it.** On the East and Gulf Coast, skill rises from about 0.3
 against raw hourly currents to about 0.63 against the 48-hour low-pass.
@@ -179,7 +179,7 @@ not capturing the slow signal either.
 
 ---
 
-## fig4_geostrophy_overshoot — why raw SWOT velocity is a worse predictor than the mean
+## geostrophy_overshoot — why raw SWOT velocity is a worse predictor than the mean
 
 **What it shows.** Joint density (hexagonal bins, log colour scale) of the
 SWOT L3 geostrophic velocity at the radar cell against the radar velocity,
@@ -192,7 +192,7 @@ annotation gives the correlation, the ratio of standard deviations
 **How to read it.** The cloud is tilted well below the one-to-one line in
 every panel: SWOT velocity has 1.2 to 1.4 times the radar's amplitude and
 the regression slope is 0.25 to 0.5. Used raw, SWOT geostrophy therefore
-has negative R² everywhere (fig1 would show it far off the left edge).
+has negative R² everywhere (skill_ladder would show it far off the left edge).
 The likely cause is small-scale noise in the sea-surface slope that the
 20 to 30 km L3 filter does not remove; Tchonang et al. (2026) found the
 optimum smoothing for in situ comparison in the California Current to be
@@ -202,7 +202,7 @@ smoothing enough.
 
 ---
 
-## fig5_coverage_map — where the comparison happens
+## coverage_map — where the comparison happens
 
 **What it shows.** Every held-out radar grid point, coloured by the
 fraction of its passes in which the SWOT L3 geostrophic velocity is
@@ -219,7 +219,7 @@ model predicts from mean dynamic topography and wind alone. This is also
 why the Gulf of Alaska and Great Lakes radars do not appear in the other
 figures: their footprints fall almost entirely in masked SWOT cells.
 
-## fig6_benchmark_grid_u / _v — the whole evaluation grid on one page
+## benchmark_grid_u / _v — the whole evaluation grid on one page
 
 **What it shows.** Every scored cell in `baselines/results.json` as one
 heatmap tile: six region panels, the full model list down the rows (the count
@@ -246,7 +246,7 @@ adjacent columns, which is what "too few passes" looks like.
 **Built by** `fig_benchmark_grid()` in `scripts/baselines_figures.py`;
 rerun with `python scripts/baselines_figures.py`.
 
-## fig7_uswc_two_orbits — same radar, two SWOT orbits
+## uswc_two_orbits — same radar, two SWOT orbits
 
 **What it shows.** The full ladder for the US West Coast radar under the
 two orbits SWOT has flown: left, the science phase (21-day repeat; held-out
@@ -254,7 +254,7 @@ rows at least 30 days after training, April to June 2024, scored with the
 pooled science champion); right, the calval phase (1-day repeat; held-out
 rows at least 7 days after training, 26 June to 10 July 2023, scored with
 the calval champion `gen020_02` of run `evolve_uswc_v1`, which also had
-GOES SST as an input). Same marker and bar conventions as fig1.
+GOES SST as an input). Same marker and bar conventions as skill_ladder.
 
 **How to read it.** Under 21-day sampling every model from the
 5-parameter linear fit upward sits at the same 0.2 on u and 0.1 on v: the
@@ -270,3 +270,30 @@ and negative on science (seasons differ).
 
 **Built by** `fig_two_orbits()` in `scripts/baselines_figures.py`; needs
 both `baselines/results.json` files (`--run`, `--calval-run`).
+
+## hfr_rotary_spectrum — where the radar's energy sits, and what each target filter keeps
+
+Script: `scripts/hfr_rotary_spectrum.py` (not `baselines_figures.py`; it needs
+the hourly radar archive on Z: or `HFR_DATA_ROOT`). Status: self-test passes on
+a synthetic series; the real-data render is pending the next time the drive is
+plugged in.
+
+Top panel: rotary power spectrum of the hourly surface current at the
+best-covered cells of each region over the held-out window (Mar-Jun 2024),
+Welch with 30-day Hann segments. The current is treated as the complex series
+u + iv, so clockwise rotation (solid) and counterclockwise (dashed) are
+separated; in the northern hemisphere inertial oscillations are clockwise
+only, tides elliptical, sub-inertial flow roughly balanced. Vertical lines mark
+M2, K1, O1 and each region's inertial frequency. Right axis: the fraction of
+variance each target filter passes, computed analytically: the 25-point boxcar
+applied once (|H|^2, with its side lobes visible past 1 cpd) and the order-2
+Butterworth at 18 h and 48 h applied forward and backward (|H|^4).
+
+Bottom panel: ten days of one cell's u, raw and under the three filters. Point
+of the figure: the energy the altimeter cannot see is the tidal lines and the
+clockwise inertial bump; the 18-h filter leaks the diurnal and inertial band,
+the 48-h filter is clean but damps real two-day flow, and the 25-h mean sits
+between with about 5 % loss at 8-day periods. That is why 25 h is the headline
+target and the other two are reported as tiers.
+
+Files in this folder are not numbered; numbering is assigned in the paper.

@@ -7,7 +7,143 @@ Convention: newest entry first; one `##` section per date; record *why* alongsid
 
 ---
 
+## 2026-11-01 — Research update, calval on three regions, figures split by mission
+
+### 14:30 Calval table for usegc and ushi; figure folders split into science / calval / hfr_target
+
+David: "can we do all that now for calval?", "we should separate the figures
+into science cycle and calval", and "can you provide an update of what was
+done since the last research update".
+
+**Eval bug.** The first three-region run silently scored only uswc: for a
+single-region run `evaluate()` overwrote the requested region list with the
+run's own region. Changed so a non-pooled run keeps the requested sister
+regions whenever their solo freeze (`solo/<rid>/data.npz`) exists, own region
+first. Relaunched; usegc and ushi replayed and verified against their frozen
+Y_test exactly.
+
+**Numbers** (25-h target, SWOT-valid, 7-day buffer, R² u/v): usegc retrained
+champion 0.62/0.62 against per-cell linear 0.59/0.65, ridge 0.52/0.65,
+climatology 0.41/0.59, 5-parameter linear 0.37/0.60 (intervals about plus or
+minus 0.07 in u); uswc campaign champion 0.43/0.56 against per-cell linear
+0.38/0.36 (unchanged); ushi, only 1,240 rows and 12 passes, climatology
+0.90/0.73, per-cell linear 0.87/0.69, ridge 0.73/0.56, champion 0.72/0.60. The
+West Coast calval margin does not generalise: on the East Coast the network
+ties the strongest linear baseline, and in Hawaii a steady flow makes location
+alone the best model. The one place the network clearly wins is the run it was
+evolved on. Written into the 1 November research update as an addendum.
+
+**Figures by mission.** `docs/figures/baselines/` became `docs/figures/science/`
+(git mv, references repointed); `baselines_figures.py` now reads the run's
+mission from `data_meta.json` and writes to `docs/figures/<mission>/`, with
+per-mission protocol key (buffer30d or buffer7d), caption text, champion labels
+and provenance note, regions narrowed to those present, panel widths scaled to
+the region count, tier columns hidden when no tier has data, and the
+science-only figures (overshoot, coverage, two orbits) skipped for calval. For
+calval the champion is one row per region: campaign predictions for uswc, the
+retrained twin for usegc and ushi, labelled as such. Ladder x-range extended to
+1.0 (Hawaii climatology at 0.90 was clipped), the ">=" glyph replaced by "at
+least" (cmr10 lacks it), the legend moved to the empty upper-left so it cannot
+sit on the champion row. The rotary-spectrum figure writes to
+`docs/figures/hfr_target/` since it belongs to neither orbit.
+`docs/figures/README.md` rewritten with one section per folder.
+
+**Research update** `docs/updates/research-update-2026-11-01.md` written,
+covering 30 and 31 October (calval table, climatology rungs, cleanup,
+replication, pipeline map, figure library, rotary spectrum) and the 1 November
+discussion of the goal: an R² above 0.9 against the 25-hour radar is above the
+measurement ceiling; the field-recognised version of a large margin is
+scale-dependent skill against DUACS below 100 km, or the West Coast regime.
+
 ## 2026-10-31 — Repository cleanup plan
+
+### 19:40 Rotary-spectrum figure: colours, split panels, legend placement
+
+David: "can we get some colors on that rotary spectral plot", "i need some help
+interpreting it too", "lord this is hard to get", "so what's the purpose of
+having two vertical axes", "try splitting it", "also watch for collisions
+between the legend and plot", and "no keep the frequency per cycle" when a
+period axis was offered.
+
+Changes to `scripts/hfr_rotary_spectrum.py`: filters coloured consistently in
+every panel (target 25-h mean teal, Butterworth 18-h amber, 48-h violet;
+regions ink and magenta); the twin right-hand axis replaced by a separate
+middle panel for the filter responses sharing the frequency axis, so reading
+is "find a spike on top, drop down, read the fraction passed"; tide and
+inertial labels moved inside the top panel; the time-strip legend placed below
+its panel so it cannot cross the tidal swings; frequency (cycles per day) kept
+as the only horizontal axis per David's preference, with the axis label
+spelling out slow-left, fast-right. Self-test re-run and inspected after each
+change. The interpretation that landed, for the paper's methods paragraph: the
+hourly radar current is mostly tide and inertial motion the altimeter cannot
+see; the spectrum shows where that energy sits; the 25-hour mean removes it
+while keeping the multi-day flow, with the two Butterworth cutoffs bracketing
+it (18 h leaks the diurnal band, 48 h removes real two-day flow).
+
+### 19:00 Figure library without numbers; rotary-spectrum figure (script ready, data pending)
+
+David: "yes i want to do the power spectrum. should i do a rotary power spectrum
+here comparing our options? you also need not number the figures, i will do
+that in the paper. just create a library of them and a glossary so i know
+which is what." Earlier in the thread: "should we make animations of the hfr
+under butterworth?" (answered: no for the paper; one spectrum figure instead).
+
+**Numbering dropped.** The eight baselines figures were renamed from
+`figN_name` to `name` (git mv, both PNG and SVG), the save calls in
+`baselines_figures.py` changed to match, and every reference in the README,
+the figure README, the pipeline map, the replication guide and the plan
+updated. `docs/figures/README.md` is the new library index: one table per
+topic folder (baselines, poster, regions) with what each figure shows, what it
+is for, and the script that regenerates it, plus the colour and font
+conventions. Numbering now happens only in the paper.
+
+**Rotary spectrum, why.** For a vector current the rotary spectrum (complex
+series u + iv, negative frequencies clockwise, positive counterclockwise) is
+the right diagnostic: inertial oscillations are clockwise-only in the northern
+hemisphere and show as a clean one-sided peak at the local inertial period;
+tidal ellipses appear on both sides; the sub-inertial flow is roughly balanced.
+The target filters act on u and v with the same real coefficients, so one
+response curve per filter applies to both rotary sides. The figure therefore
+shows where the energy the altimeter cannot see lives and how much of it each
+filter passes, against the continuum they keep.
+
+**Script.** `scripts/hfr_rotary_spectrum.py` reuses `hfr_tiers.hourly_files`
+and the baselines figure style. Welch with 30-day Hann segments and 50 %
+overlap, averaged over the 30 best-covered cells per region (coverage >= 90 %,
+gaps linearly interpolated), held-out window Mar-Jun 2024 by default. Filter
+power responses computed analytically: boxcar 25-point |H|^2 (applied once),
+Butterworth order 2 |H|^4 (filtfilt applies it twice). A `--selftest` builds a
+synthetic series (red noise, CW-dominant M2 ellipse, K1, clockwise inertial at
+35 N, white noise) and asserts: the inertial peak is clockwise-only (ratio > 5),
+M2 is CW-dominant, the boxcar passes < 1 % at M2 and K1, the 48-h Butterworth
+< 0.1 % at M2, the 18-h leaks more K1 than the 48-h, and all three pass > 90 %
+of 8-day variance. The last threshold was first set at 95 % and failed on the
+boxcar, which passes 94.5 % at 8 days; that is a real property of the running
+mean (it damps week-scale flow by about 5 %) and is now stated in the figure
+notes rather than hidden. Rendered self-test figure in `archive/selftest/`.
+`hfr_tiers.py` now also honours `HFR_DATA_ROOT`.
+
+**Pending.** The real-data render needs the hourly archive on Z:. Command in
+the README; output `docs/figures/baselines/hfr_rotary_spectrum.{png,svg}`;
+entry already in the figure README and library index marked pending.
+
+### 17:30 Pipeline map
+
+David, after a run of questions on where the 25-hour mean and the Butterworth
+tiers sit relative to training: "i think i need a visual map of the entire
+pipeline somewhere."
+
+Wrote `docs/pipeline-map.md`: three Mermaid flowcharts (sources to local
+mirrors; mirrors to flattened rows, data.npz and the evolve harness;
+predictions to the baselines table and figures) plus reading notes. Mermaid
+over a drawn figure because it renders on GitHub and in VS Code with nothing
+to maintain, and can be exported to SVG for the paper later. The questions
+that prompted it are answered by the map's structure: the target is fixed at
+stage 1 (25-hour running mean at pass time), the evolve harness bypasses the
+pipeline's train step and owns training inside each candidate, and the
+Butterworth tiers enter only at stage 3 as alternative yardsticks for the same
+predictions. README points to it from the Replication section and the file
+hierarchy.
 
 ### 16:40 Replication gaps closed: lock file, HFRNet recipe, archive manifest, guide
 

@@ -117,7 +117,7 @@ pkill -f "streamlit run"                 # stop by name
 
 ## Replication
 
-`docs/replication.md` walks three levels: regenerate the figures from tracked results (minutes), rebuild the data and retrain the champion from public sources (days), and rerun the LLM-guided search (not replayable; audit trail in `database.jsonl`). Exact package versions: `requirements-lock.txt`. Data archive manifest with SHA-256: section 2.7 there.
+`docs/replication.md` walks three levels: regenerate the figures from tracked results (minutes), rebuild the data and retrain the champion from public sources (days), and rerun the LLM-guided search (not replayable; audit trail in `database.jsonl`). Exact package versions: `requirements-lock.txt`. Data archive manifest with SHA-256: section 2.7 there. A visual map of the whole chain, sources to figures, is `docs/pipeline-map.md`.
 
 ---
 
@@ -150,9 +150,12 @@ SWOT-data-analysis/
 │   ├── research-plan.md            # Phased plan with tick-boxes
 │   ├── glossary.md  model-data.md  preprint-style-checklist.md
 │   ├── cleanup-plan.md             # This layout and what moved where
+│   ├── pipeline-map.md             # Mermaid map: sources -> mirrors -> rows -> model -> tables -> figures
+│   ├── replication.md              # Three replication levels, commands, data-archive manifest
 │   ├── updates/                    # Dated research-update memos
 │   └── figures/
-│       ├── baselines/              # fig1–fig7 + README describing each (scripts/baselines_figures.py)
+│       ├── README.md               # figure library index: every figure, what it shows, which script
+│       ├── baselines/              # Phase-1 figure set + README describing each (scripts/baselines_figures.py)
 │       ├── poster/                 # Fitness scatter, architecture, importances (scripts/poster_figures.py)
 │       └── regions/                # Region-overview maps
 │
@@ -176,8 +179,9 @@ SWOT-data-analysis/
 | `evolve.py` | AlphaEvolve search over the ANN training code; resumable by `--name` | `experiments/evolve/{run}/` |
 | `solo_vs_pooled.py` | Retrain a run's champion per region (solo) for comparison with the pooled model | `experiments/evolve/{run}/solo/` |
 | `baselines_eval.py` | Phase-1 table: baseline ladder, holdout protocols, block bootstrap | `experiments/evolve/{run}/baselines/results.{json,md}` |
-| `baselines_figures.py` | fig1–fig7 from the baselines results | `docs/figures/baselines/` |
+| `baselines_figures.py` | Phase-1 figure set (skill ladder, RMSE change, truth tiers, overshoot, coverage, benchmark grids, two orbits) | `docs/figures/science/` |
 | `hfr_tiers.py` | Alternative HFR truth tiers (raw, 25-h, Butterworth) for held-out rows | `experiments/evolve/{run}/baselines/tiers_{region}.npz` |
+| `hfr_rotary_spectrum.py` | Rotary spectrum of hourly radar currents with the three target-filter responses; `--selftest` on synthetic data | `docs/figures/science/hfr_rotary_spectrum.*` |
 | `duacs_pull.py` | DUACS L4 daily geostrophy per region from Copernicus Marine | `experiments/{region}/duacs/` |
 | `animate_evolve_champion.py` | Retrain champion, run inference + animate every region | `frames/`, `animations/{region}/ann/evolve_{cid}/` |
 | `champion_importance.py` | Grouped permutation importance for a champion | `docs/figures/poster/champion_importance.{json,png,svg}` |
@@ -346,9 +350,12 @@ python scripts/duacs_pull.py
 # Calval window (the eval concatenates every duacs_l4_{rid}_*.nc it finds):
 python scripts/duacs_pull.py --regions uswc,usegc,ushi --start 2023-03-01T00:00:00 --end 2023-08-31T23:59:59
 
-# Paper figures for the baselines (docs/figures/baselines/*.png|svg; the
+# Paper figures for the baselines (docs/figures/science/*.png|svg; the
 # README there describes each one):
 python scripts/baselines_figures.py --run evolve_all_science_v1
+# Rotary spectrum of the hourly radar + filter responses (needs the hourly
+# archive: HFR_DATA_ROOT or Z:; --selftest runs on a synthetic series):
+python scripts/hfr_rotary_spectrum.py --regions usegc,uswc --start 2024-03-01 --end 2024-06-30
 ```
 
 ```bash

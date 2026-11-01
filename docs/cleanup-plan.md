@@ -28,7 +28,7 @@ Disk, from the repo root (MB):
 
 Twenty-one top-level entries. Nine are output or scratch folders that no code
 reads. Three sets of figures live in three places (`figures/`,
-`docs/figures/baselines/`, `docs/poster/`). Two folders hold notebooks
+`docs/figures/science/`, `docs/poster/`). Two folders hold notebooks
 (`notebooks/`, `scratch_notebooks/`) plus a third notebook inside
 `SWOT_hf_plotting/`.
 
@@ -45,7 +45,7 @@ SWOT-data-analysis/
 │   ├── research-log.md  research-plan.md  glossary.md  model-data.md  preprint-style-checklist.md
 │   ├── updates/            research-update-YYYY-MM-DD.md (dated memos)
 │   └── figures/
-│       ├── baselines/      fig1..fig7 (unchanged)
+│       ├── baselines/      Phase-1 figure set (unchanged)
 │       ├── poster/         was docs/poster/ (one path string in two scripts)
 │       └── regions/        was figures/ (4 region-overview PNGs)
 ├── papers/                 PDF library plus NOTES.md; gains handbooks/ (was swot_documentation/)

@@ -294,7 +294,8 @@ def evaluate(run: str, regions: list[str], B: int, buffer_days: float, max_dt_h:
     pooled = bool(meta_all.get("pooled", False))
     c0, c1 = int(meta_all.get("cycles_start", 1)), int(meta_all.get("cycles_end", 16))
     if not pooled:                       # single-region run (e.g. the calval campaign)
-        regions = [meta_all["region"]]
+        own = meta_all["region"]         # own region first; sister regions only if their solo freeze exists
+        regions = [own] + [r for r in regions if r != own and (run_dir / "solo" / r / "data.npz").exists()]
     data = np.load(run_dir / "data.npz")
     X_test, Y_test = data["X_test"], data["Y_test"]
     champ_dir = max((d for d in (run_dir / "candidates").iterdir() if (d / "predictions.npz").exists()),
@@ -538,7 +539,7 @@ def render_md(res: dict) -> str:
              "else the training mean; negative = better); R²_res = 1 − SSE/Var(HFR − raw L3 geos). 95% CIs from a block bootstrap over (cycle, pass) "
              "snapshots; N_eff = iid variance of the mean error / block-bootstrap variance of it. "
              "Rows: clean SWOT↔HFR pairing and finite centre-cell SWOT+ERA5. "
-             "What each model regresses against what: docs/figures/baselines/README.md, section \"What is regressed against what\".")
+             "What each model regresses against what: docs/figures/science/README.md, section \"What is regressed against what\".")
     for rid, reg in res["regions"].items():
         L += ["", f"## {rid}  (test cycles {reg['test_cycles'][0]}–{reg['test_cycles'][-1]}, "
               f"train end {reg['train_end'][:10]}, clean pairs {reg['clean_pair_frac']:.0%}, "

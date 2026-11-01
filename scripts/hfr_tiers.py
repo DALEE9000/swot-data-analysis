@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import os
 import json
 import re
 import sys
@@ -41,7 +42,7 @@ from scipy.ndimage import uniform_filter1d
 from scipy.signal import butter, filtfilt
 
 ROOT = Path(__file__).resolve().parents[1]
-HFR_ROOT = Path("Z:/data_repository/columbia_oceanography/HFR/Code/Data")
+HFR_ROOT = Path(os.environ.get("HFR_DATA_ROOT", "Z:/data_repository/columbia_oceanography/HFR/Code/Data"))
 RES = {"uswc": "6km", "usegc": "6km", "prvi": "6km", "ushi": "6km", "gak": "2km", "glna": "6km"}
 PAD_H = 240          # hours of record each side of the held-out window
 TIERS = {"bw18": 18.0, "bw48": 48.0}
