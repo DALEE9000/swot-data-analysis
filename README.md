@@ -149,6 +149,8 @@ SWOT-data-analysis/
 │   ├── research-log.md             # Dated log of every change and finding (newest first)
 │   ├── research-plan.md            # Phased plan with tick-boxes
 │   ├── glossary.md  model-data.md  preprint-style-checklist.md
+│   ├── methods-notes.md            # Plain-prose explanations of the evaluation methods (R², climatology, ...)
+│   ├── methods-equations/          # Standalone LaTeX of the scoring and ladder equations (+ built PDF); \input-able body
 │   ├── cleanup-plan.md             # This layout and what moved where
 │   ├── pipeline-map.md             # Mermaid map: sources -> mirrors -> rows -> model -> tables -> figures
 │   ├── replication.md              # Three replication levels, commands, data-archive manifest
@@ -181,7 +183,7 @@ SWOT-data-analysis/
 | `baselines_eval.py` | Phase-1 table: baseline ladder, holdout protocols, block bootstrap | `experiments/evolve/{run}/baselines/results.{json,md}` |
 | `baselines_figures.py` | Phase-1 figure set (skill ladder, RMSE change, truth tiers, overshoot, coverage, benchmark grids, two orbits) | `docs/figures/science/` |
 | `hfr_tiers.py` | Alternative HFR truth tiers (raw, 25-h, Butterworth) for held-out rows | `experiments/evolve/{run}/baselines/tiers_{region}.npz` |
-| `hfr_rotary_spectrum.py` | Rotary spectrum of hourly radar currents with the three target-filter responses; `--selftest` on synthetic data | `docs/figures/science/hfr_rotary_spectrum.*` |
+| `hfr_rotary_spectrum.py` | Rotary spectrum of hourly radar currents with the three target-filter responses; `--selftest` on synthetic data | `docs/figures/hfr_target/hfr_rotary_spectrum.*` |
 | `duacs_pull.py` | DUACS L4 daily geostrophy per region from Copernicus Marine | `experiments/{region}/duacs/` |
 | `animate_evolve_champion.py` | Retrain champion, run inference + animate every region | `frames/`, `animations/{region}/ann/evolve_{cid}/` |
 | `champion_importance.py` | Grouped permutation importance for a champion | `docs/figures/poster/champion_importance.{json,png,svg}` |
@@ -494,5 +496,65 @@ The supervised-learning targets: HFR `u`/`v` interpolated onto each pass's SWOT 
 | `build_science_colocations.py` | end-to-end per region: AVISO granule download → SWOT pkl → HFR target → upload → granule sync (5 phases, resume-safe via manifest + per-cycle checkpoints) |
 | `aggregate_hfr.py` | raw hourly HFRNet files → single full-period archives (multi-grid-era aware, memory-bounded streaming, crash-resumable) |
 | `build_hfr_multires.py` | per-resolution colocation targets built from the local raw hourly archives |
+| `fetch_hfr_eu.py` | European HFR node hourly totals, one NetCDF per network per month via THREDDS NCSS (free, resumable) → `HFR_DATA_ROOT/eu_<net>_hourly/` |
+| `fetch_hfr_imos.py` | IMOS ACORN (Australia) hourly gridded maps, per-hour files via THREDDS fileServer (free, resumable, 8 threads) → `HFR_DATA_ROOT/imos_<site>_hourly/` |
+| `hfr_convert_networks.py` | European-node and IMOS files → HFRNet-style monthly hourly archives `<region>_<res>_Resolution_hourly/` (QC 1-2 kept, nearest-cell binning to a regular grid, networks merged per region) for `build_hfr_multires.py` |
+| `fetch_hfrnet.py` | US HFRNet 6 km gap fill and extension from NOAA NCEI's HF radar RTV archive (`ncei.noaa.gov/data/oceans/ioos/hfradar/rtv`, hourly files 2006-present, free; the Scripps THREDDS server is retired and NDBC/ERDDAP keep three months): fetches calendar months with no local hours plus everything after the last local hour as per-hour files in the archive's own naming, SIO product preferred over NDBC, never duplicates an hour; `--go` to fetch, otherwise prints the plan |
+| `animate_hfr_swot.py` | HFR daily mean (left) and SWOT L3 geostrophic current on that day's passes (right), one frame per calendar day, per region and per continent (`--continents north_america,europe,australia`); builds a daily-mean radar cache (`--build-daily`, rebuilt per year when the archive gets newer files) under `HFR_ANIM_ROOT/hfr_daily/`, frames under `HFR_ANIM_ROOT/frames/` → `docs/figures/hfr_animations/<name>_hfr_swot.mp4` |
+| `animate_hfr_regions.py` | Daily-mean speed + arrow animation of every HFR region's full hourly archive (`--coverage` prints the day-coverage table in `docs/model-data.md` from the daily cache under `HFR_ANIM_ROOT/hfr_daily/`) (19 regions: US HFRNet 6 km, European node, IMOS) → `docs/figures/hfr_animations/<region>_daily.mp4`; frames cached under `archive/hfr_anim_frames/` (deleted 2026-11-08 to free C:; re-rendering recreates them), resumable |
 
 AVISO source: `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` (SFTP; set `AVISO_USER` and `AVISO_PW` in the environment, nothing is stored in the repo). Raw hourly HFR source files are kept locally under `HFR/Code/Data/*_Resolution_hourly/` (not on S3); set `HFR_DATA_ROOT` to point the two HFR scripts elsewhere. Public route from HFRNet THREDDS: `docs/replication.md` section 2.3.
+
+New radar networks (Europe, Australia; started 2026-11-04). All three jobs are resumable, rerun the same line after any interruption; AVISO login is read from the gitignored `.env` at the repo root:
+
+```bash
+export AVISO_USER="$(grep '^AVISO_USER=' .env | cut -d= -f2-)" AVISO_PW="$(grep '^AVISO_PW=' .env | cut -d= -f2-)"
+export HFR_DATA_ROOT='Z:\data_repository\columbia_oceanography\HFR\Code\Data'   # radar files go to Z:
+python scripts/build_science_colocations.py --regions eu_biscay,eu_galicia,eu_wmed,eu_tirlig,eu_gbight,eu_norway --phase download
+python scripts/build_science_colocations.py --regions au_rot,au_turq,au_cof,au_newc,au_sag,au_nwa,au_corl --phase download   # CBG, BONC dropped (radar ends 2017)
+python scripts/fetch_hfr_eu.py      # 10 networks, Jul 2023 - Jul 2024, ~15 min
+python scripts/fetch_hfr_imos.py    # 8 sites, ~15 min per site-year
+```
+Logs: `SWOT_L3/science/download_{eu,au}.log`, `fetch_hfr_{eu,imos}.log`. About 90 s per SWOT granule over SFTP.
+`SWOT_L3/` in the repo is a directory junction to `Z:\data_repository\columbia_oceanography\SWOT-data-analysis\SWOT_L3` (made 2026-11-04 with `mklink /J`), so SWOT segments land on Z: without a code change; recreate the junction if the repo is cloned fresh. Since 2026-11-08 `docs/figures/hfr_animations/` and every `experiments/<region>/swot_cycles/` are junctions too (same Z: tree, `mklink /J`), because the movies and the 58-cycle pkls no longer fit on C:.
+
+Radar animations (every region, every day with data; frames are skipped when present, so rerun the same line after an interruption):
+
+```bash
+export HFR_DATA_ROOT='Z:\data_repository\columbia_oceanography\HFR\Code\Data'
+python scripts/animate_hfr_regions.py                       # all 19 regions, ~2 h in four parallel shells
+python scripts/animate_hfr_regions.py --regions uswc,au_rot --fps 24
+python scripts/animate_hfr_regions.py --assemble-only       # rebuild the MP4s from cached frames
+```
+Output `docs/figures/hfr_animations/<region>_daily.mp4` (MP4s are gitignored); logs `archive/hfr_anim_frames/anim_{A,B,C,D}.log`.
+
+Full radar records and every SWOT science cycle (started 2026-11-07; all free, nothing touches S3). Radar fetchers are resumable; the SWOT download runs as four workers over disjoint cycle ranges with their own manifests (`--manifest-tag`) and per-worker temp granules; cycles past the reprocessing (033-058 as of Nov 2026, 032 split) come from AVISO's `Expert/forward` folder automatically:
+
+```bash
+export HFR_DATA_ROOT='Z:\data_repository\columbia_oceanography\HFR\Code\Data'
+python scripts/fetch_hfr_eu.py --nets EUSKOOS,Galicia,Ibiza,DeltaEbro,ICATMAR --start 2019-01 --end 2026-10   # node holds 2019-present
+python scripts/fetch_hfr_eu.py --nets TirLig,ARPAS,Vestlandet --start 2019-01 --end 2026-10
+python scripts/fetch_hfr_eu.py --nets COSYNA --start 2019-01 --end 2023-06            # COSYNA from Oct 2023 hangs the node, keep it out
+python scripts/fetch_hfr_imos.py --sites ROT,TURQ,COF,NEWC,SAG,NWA,CORL --start 2009-01-01 --end 2026-11-06   # ~12 files/s, ~1 day
+python scripts/hfr_convert_networks.py --start 2009-01 --end 2026-10                  # then the monthly archives (skips months already converted)
+python scripts/fetch_hfrnet.py            # plan only; add --go to fetch the US gaps and the 2025-2026 tail from NCEI (two streams by region; 8 threads each)
+R=uswc,usegc,gak,glna,prvi,ushi,eu_biscay,eu_galicia,eu_wmed,eu_tirlig,eu_gbight,eu_norway,au_rot,au_turq,au_cof,au_newc,au_sag,au_nwa,au_corl
+python scripts/build_science_colocations.py --regions $R --phase download --cycles 017-027 --manifest-tag _ext1   # x4 workers: 028-038, 039-048, 049-058
+python scripts/build_science_colocations.py --regions $R --phase pkl --cycles 001-058    # appends the new cycles to each region's existing pkl
+python scripts/build_era5_winds.py --mission science --regions eu_biscay,eu_galicia,eu_wmed,eu_tirlig,eu_gbight,eu_norway,au_rot,au_turq,au_cof,au_newc,au_sag,au_nwa,au_corl   # public NCAR mirror, anonymous, $0; ~2 min/month
+python scripts/build_era5_winds.py --mission science --months 2024-08 2026-10 --regions $R   # append mode: only months missing from each pkl are fetched (mirror lags ~2 months; rerun to extend)
+```
+Logs: `SWOT_L3/science/fetch_hfr_eu_full_{A,B,C}.log`, `fetch_hfr_imos_full.log`, `fetch_hfrnet_{A,B}.log`, `download_ext_{1..8}.log`. About 65 s per granule per SFTP worker (11 MB granules; AVISO is slow, not the disk), 184 passes per cycle over the 19 regions, so 42 cycles take about a day and a half with four workers.
+
+HFR and SWOT side by side (per region and per continent; the daily cache and frames live on Z: because C: is nearly full):
+
+```bash
+export HFR_DATA_ROOT='Z:\data_repository\columbia_oceanography\HFR\Code\Data'
+export HFR_ANIM_ROOT='Z:\data_repository\columbia_oceanography\SWOT-data-analysis\archive\hfr_anim'
+python scripts/animate_hfr_swot.py --build-daily --regions all           # daily cache, then region movies (split over four shells)
+python scripts/animate_hfr_swot.py --continents all                      # continent movies, after every region's cache exists
+python scripts/animate_hfr_swot.py --regions all --redo-from 2024-07-01  # after new SWOT cycles land in the pkls
+python scripts/animate_hfr_swot.py --assemble-only --regions all --continents all
+python scripts/animate_hfr_swot.py --assemble-only --regions all --continents all --since 2023-04-01   # SWOT-era cuts only
+```
+Output `docs/figures/hfr_animations/<region|continent>_hfr_swot.mp4` and, with `--since`, `<name>_hfr_swot_since2023.mp4` (frames from that day on, so the SWOT era is the whole film instead of the last fifth); logs `$HFR_ANIM_ROOT/render_{A,B,C,D}.log`.

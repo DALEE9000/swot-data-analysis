@@ -274,9 +274,9 @@ both `baselines/results.json` files (`--run`, `--calval-run`).
 ## hfr_rotary_spectrum — where the radar's energy sits, and what each target filter keeps
 
 Script: `scripts/hfr_rotary_spectrum.py` (not `baselines_figures.py`; it needs
-the hourly radar archive on Z: or `HFR_DATA_ROOT`). Status: self-test passes on
-a synthetic series; the real-data render is pending the next time the drive is
-plugged in.
+the hourly radar archive on Z: or `HFR_DATA_ROOT`). Rendered 2026-11-02 from
+the archive (usegc mean lat 39.9, uswc 35.5; 30 fully covered cells each,
+Mar-Jun 2024); written to `docs/figures/hfr_target/`, not this folder.
 
 Top panel: rotary power spectrum of the hourly surface current at the
 best-covered cells of each region over the held-out window (Mar-Jun 2024),

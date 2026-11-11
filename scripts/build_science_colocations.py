@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pickle
 import sys
 import time
 from pathlib import Path
@@ -46,6 +47,10 @@ AVISO_PORT = 2221
 AVISO_USER = os.environ.get("AVISO_USER")
 AVISO_PW   = os.environ.get("AVISO_PW")
 REMOTE_ROOT = "swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc"
+# Science cycles past the reprocessing (033+ as of 2026-11; 032 is split) live in
+# the forward stream, same file format. Per cycle both folders are listed and
+# a pass present in both is taken from reproc.
+FORWARD_ROOT = "swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/forward"
 
 S3_BUCKET = "swot-ai-ssv"
 
@@ -95,6 +100,25 @@ REGIONS: dict[str, tuple[list[float], list[float]]] = {
     # measured 2026-07-13 from the newly aggregated archives
     "prvi":  ([-68.4, 15.8],  [-63.8, 19.6]),
     "ushi":  ([-159.4, 19.3], [-154.3, 22.1]),
+    # European HFR node (thredds.hfrnode.eu) and IMOS ACORN (Australia),
+    # added 2026-11-04. Boxes = network grid bounds from the THREDDS
+    # catalogues + 0.5 deg pad. HFR for these comes from
+    # scripts/fetch_hfr_eu.py / fetch_hfr_imos.py, not S3 (no HFR_SOURCES).
+    "eu_biscay":  ([-4.2, 43.1], [-1.3, 44.4]),    # HFR-EUSKOOS
+    "eu_galicia": ([-10.2, 41.4], [-8.0, 43.9]),   # HFR-Galicia
+    "eu_wmed":    ([-0.6, 38.2], [3.6, 42.3]),     # HFR-Ibiza, DeltaEbro, ICATMAR
+    "eu_tirlig":  ([7.0, 38.4], [12.6, 44.6]),     # HFR-TirLig, LaMMA, ARPAS
+    "eu_gbight":  ([5.8, 53.4], [9.0, 55.6]),      # HFR-COSYNA
+    "eu_norway":  ([3.8, 59.4], [6.2, 62.2]),      # HFR-Vestlandet
+    "au_rot":     ([114.4, -32.7], [115.9, -31.2]),
+    "au_turq":    ([113.4, -31.6], [115.6, -29.4]),
+    "au_cof":     ([152.9, -31.1], [154.6, -29.4]),
+    "au_newc":    ([151.4, -33.6], [153.6, -31.9]),
+    "au_cbg":     ([151.4, -24.1], [153.6, -22.4]),
+    "au_sag":     ([134.4, -36.6], [138.6, -33.9]),
+    "au_bonc":    ([138.4, -39.1], [141.6, -36.9]),
+    "au_nwa":     ([113.4, -22.1], [116.1, -19.4]),
+    "au_corl":    ([111.3, -32.5], [116.4, -27.6]),  # IMOS Coral Coast, WA (2019-), spans ROT+TURQ
 }
 
 # The SWOT variables the pipeline can use as features — everything else is
@@ -226,24 +250,28 @@ def phase_download(regions: list[str]) -> None:
 
     manifest = load_manifest()
     av = Aviso()
-    tmp = LOCAL_ROOT / "_tmp_granule.nc"
+    tmp = LOCAL_ROOT / f"_tmp_granule{MANIFEST.stem.replace('colocation_manifest', '')}.nc"  # per worker
     LOCAL_ROOT.mkdir(parents=True, exist_ok=True)
     n_fetched = n_skipped = 0
 
     try:
         for cycle in CYCLES:
-            remote_dir = f"{REMOTE_ROOT}/cycle_{cycle}"
-            try:
-                files = av.listdir(remote_dir)
-            except FileNotFoundError:
+            by_pass: dict[str, str] = {}   # pass id -> full remote path (forward first, reproc wins)
+            for root in (FORWARD_ROOT, REMOTE_ROOT):
+                try:
+                    files = av.listdir(f"{root}/cycle_{cycle}")
+                except FileNotFoundError:
+                    continue
+                by_pass.update({f.split("_")[6]: f"{root}/cycle_{cycle}/{f}" for f in files if f.endswith(".nc")})
+            if not by_pass:
                 log(f"cycle_{cycle}: not on server — skipping")
                 continue
-            by_pass = {f.split("_")[6]: f for f in files if f.endswith(".nc")}
 
             for pass_id in sorted(pass_map):
-                fname = by_pass.get(pass_id)
-                if fname is None:
+                rpath = by_pass.get(pass_id)
+                if rpath is None:
                     continue  # pass missing from this cycle (normal)
+                fname = rpath.rsplit("/", 1)[-1]
                 need = []
                 for r in pass_map[pass_id]:
                     key = f"{r}/{cycle}/{pass_id}"
@@ -257,7 +285,7 @@ def phase_download(regions: list[str]) -> None:
                 if not need:
                     continue
 
-                av.get(f"{remote_dir}/{fname}", str(tmp))
+                av.get(rpath, str(tmp))
                 with xr.open_dataset(tmp) as raw:
                     swath = raw.load()
                 for r, key, out in need:
@@ -291,15 +319,24 @@ def phase_download(regions: list[str]) -> None:
 def phase_pkl(regions: list[str], force: bool = False) -> None:
     for r in regions:
         out = pkl_path(r)
-        if out.exists() and not force:
-            log(f"{r}: {out} exists — skipping (use --force-pkl to rebuild)")
-            continue
-        sw, ne = REGIONS[r]
         data: dict[str, list] = {}
+        if out.exists() and not force:
+            # append mode: keep what is there, regrid only cycles with local segments
+            # that the pkl lacks (the 2026-11 extension to the forward-stream cycles)
+            with open(out, "rb") as fh:
+                data = pickle.load(fh)
+            todo = [c for c in CYCLES if c not in data and (region_dir(r) / f"cycle_{c}").exists()]
+            if not todo:
+                log(f"{r}: {out} exists, nothing to append — skipping (use --force-pkl to rebuild)")
+                continue
+            log(f"{r}: appending {len(todo)} cycles to existing pkl: {todo[0]}..{todo[-1]}")
+        sw, ne = REGIONS[r]
         n_entries = 0
         t0 = time.time()
         for cycle in CYCLES:
             cdir = region_dir(r) / f"cycle_{cycle}"
+            if cycle in data and not force:
+                continue
             if not cdir.exists():
                 data[cycle] = []
                 continue
@@ -567,14 +604,23 @@ def main() -> None:
                          "(default: delete them)")
     ap.add_argument("--mission", default="science", choices=list(MISSIONS),
                     help="orbit phase: science (cycles 1-16) or calval (474-578)")
+    ap.add_argument("--cycles", default=None,
+                    help="override the mission's cycle list, e.g. 017-058 or 017,020,033")
+    ap.add_argument("--manifest-tag", default="",
+                    help="suffix for the manifest file so parallel download workers do not clobber each other")
     args = ap.parse_args()
 
     global MISSION, SPH_SCIENCE, LOCAL_ROOT, MANIFEST, CYCLES
     MISSION = args.mission
     SPH_SCIENCE = _m()["sph"]
     LOCAL_ROOT = _m()["local"]
-    MANIFEST = LOCAL_ROOT / "colocation_manifest.json"
+    MANIFEST = LOCAL_ROOT / f"colocation_manifest{args.manifest_tag}.json"
     CYCLES = _m()["cycles"]
+    if args.cycles:
+        CYCLES = []
+        for part in args.cycles.split(","):
+            a, _, b = part.partition("-")
+            CYCLES += [f"{c:03d}" for c in range(int(a), int(b or a) + 1)]
 
     regions = list(REGIONS) if args.regions == "all" else [
         r.strip() for r in args.regions.split(",")

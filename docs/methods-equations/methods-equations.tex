@@ -1,0 +1,154 @@
+% Methods equations for the SWOTxAI baselines ladder.
+% Standalone: compile with pdflatex. To use in the paper, \input the body
+% between the BEGIN BODY / END BODY markers. Written 2026-11-03 from
+% scripts/baselines_eval.py; keep in step with docs/methods-notes.md section 3.
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array}
+\usepackage[T1]{fontenc}
+\title{Evaluation and baseline equations}
+\author{SWOTxAI}
+\date{3 November 2026}
+\begin{document}
+\maketitle
+
+% ---------------------------------------------------------------- BEGIN BODY
+
+\section{Notation}
+
+One row is one radar grid cell $c$ at one SWOT pass time $t$. The target is
+the 25-hour centred mean of the HFRNet surface current at that cell and time,
+$\mathbf{y} = (y_u, y_v)$. Inputs at the row:
+\begin{align*}
+\mathbf{g} &= (g_u, g_v) && \text{SWOT L3 geostrophic velocity at the centre cell,}\\
+\mathbf{W} &= (W_u, W_v) && \text{ERA5 10-m wind at the pass time,}\\
+\mathbf{d} &= (d_u, d_v) && \text{DUACS L4 geostrophic velocity interpolated to the row,}\\
+\mathbf{x} &\in \mathbb{R}^{72} && \text{the $3\times3$ stencil of eight SWOT, wind and MDT variables}\\
+&&& \text{(81 columns on the calval orbit, where GOES SST is included),}\\
+\tilde{\mathbf{x}} &&& \text{the stencil standardised by training-column mean and standard deviation,}\\
+&&& \text{missing values set to zero after standardising.}
+\end{align*}
+$\bar{\mathbf{y}}$ is the mean of $\mathbf{y}$ over the training rows of the
+region; $\bar{\mathbf{y}}(c)$ is the mean over the training rows at cell $c$.
+Rows are split in time: training cycles first, a buffer of $B$ days after the
+last training pass (30 days on the science orbit, 7 on calval), then the
+held-out passes.
+
+\section{Scoring}
+
+For one region and one component, with $n$ held-out rows, prediction $\hat y_i$
+and held-out mean $\langle y\rangle$,
+\begin{equation}
+R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat y_i)^2}{\sum_{i=1}^{n}(y_i - \langle y\rangle)^2},
+\qquad
+\mathrm{RMSE} = \sqrt{\tfrac{1}{n}\sum_{i=1}^{n}(y_i - \hat y_i)^2}.
+\label{eq:r2}
+\end{equation}
+The sums run over every held-out cell and pass of the region pooled together,
+so the denominator contains the between-cell spread of the mean flow as well
+as the pass-to-pass variability. Confidence intervals are a block bootstrap
+over (cycle, pass): 1000 resamples of whole passes with replacement, 2.5 and
+97.5 percentiles.
+
+The skill score against the per-cell climatology (eq.~\ref{eq:clim}) removes
+the between-cell credit:
+\begin{equation}
+S = 1 - \frac{\sum_i (y_i - \hat y_i)^2}{\sum_i \big(y_i - \bar y(c_i)\big)^2},
+\label{eq:skill}
+\end{equation}
+which is zero for the climatology itself and positive only when a model
+knows something the map of the mean flow does not.
+
+\section{Baselines}
+
+Every fitted coefficient below is obtained by ordinary least squares on the
+training rows of the region, separately for $u$ and for $v$ (each component
+has its own coefficients of the same form), and applied unchanged to the
+held-out rows. Only the $u$ form is written.
+
+\paragraph{Fixed rules, no parameters.}
+\begin{align}
+\hat u &= \bar y_u && \text{regional training mean,} \label{eq:trmean}\\
+\hat u &= g_u && \text{SWOT geostrophy, slope one,} \label{eq:geos}\\
+\hat u &= d_u && \text{DUACS geostrophy, slope one,} \label{eq:duacs}\\
+\hat u &= g_u + \epsilon\,(W_u\cos\theta + W_v\sin\theta) && \text{Ekman rule, } \epsilon = 0.03,\ \theta = 45^\circ, \label{eq:ekman}\\
+\hat v &= g_v + \epsilon\,(-W_u\sin\theta + W_v\cos\theta) && \text{(wind rotated } \theta \text{ to the right).} \nonumber
+\end{align}
+
+\paragraph{Climatology (the map).}
+\begin{equation}
+\hat u = \bar y_u(c), \qquad
+\bar y_u(c) = \frac{1}{n_c}\sum_{i \in \text{train}(c)} y_{u,i},
+\label{eq:clim}
+\end{equation}
+the training-period mean at the row's own cell; a held-out cell with no
+training rows falls back to $\bar y_u$.
+
+\paragraph{Linear rungs.} With $(a, b, c, d, e)$ fitted per component:
+\begin{align}
+\hat u &= a + b\,W_u + e\,W_v && \text{wind only,} \label{eq:wind}\\
+\hat u &= \bar y_u(c) + a + b\,W_u + e\,W_v && \text{climatology + wind, fitted to } y_u - \bar y_u(c), \label{eq:climwind}\\
+\hat u &= g_u + a + b\,W_u + e\,W_v && \text{SWOT (slope one) + wind, fitted to } y_u - g_u, \label{eq:geoswind}\\
+\hat u &= a + b\,g_u && \text{SWOT calibrated,} \label{eq:geoscal}\\
+\hat u &= a + b\,g_u + c\,g_v + d\,W_u + e\,W_v && \text{SWOT calibrated + wind,} \label{eq:geoscalwind}\\
+\hat u &= a + b\,d_u && \text{DUACS calibrated,} \label{eq:duacscal}\\
+\hat u &= a + b\,d_u + c\,d_v + d\,W_u + e\,W_v && \text{DUACS calibrated + wind.} \label{eq:duacscalwind}
+\end{align}
+
+\paragraph{Per-cell linear (partially pooled).}
+The five-parameter model of eq.~\ref{eq:geoscalwind} fitted at each cell on
+standardised inputs and shrunk toward the regional fit. With $A_c$ the
+$n_c \times 5$ design matrix of cell $c$ (a column of ones and the four
+standardised inputs), $\mathbf{y}_c$ its training targets, and
+$\boldsymbol\beta_g$ the regional least-squares coefficients,
+\begin{equation}
+\boldsymbol\beta_c = \big(A_c^{\top}A_c + \lambda I\big)^{-1}
+\big(A_c^{\top}\mathbf{y}_c + \lambda\,\boldsymbol\beta_g\big),
+\qquad \lambda = 5,
+\label{eq:celllinear}
+\end{equation}
+so the prior is worth five training rows; cells with fewer than five complete
+training rows use $\boldsymbol\beta_g$. With about 170 rows per cell on the
+calval orbit the local fit dominates; with about ten on the science orbit the
+prior does.
+
+\paragraph{Ridge on the full stencil.}
+\begin{equation}
+\hat u = a + \boldsymbol\beta^{\top}\tilde{\mathbf{x}},
+\qquad
+\boldsymbol\beta = \arg\min_{\boldsymbol\beta}
+\sum_{i \in \text{train}} \big(y_{u,i} - a - \boldsymbol\beta^{\top}\tilde{\mathbf{x}}_i\big)^2
++ \alpha\,\|\boldsymbol\beta\|^2,
+\qquad \alpha = 1.
+\label{eq:ridge}
+\end{equation}
+This is the linear ceiling on the champion's own inputs.
+
+\paragraph{AlphaEvolve champion.}
+\begin{equation}
+(\hat u, \hat v) = f_{\theta}(\tilde{\mathbf{x}}),
+\label{eq:champion}
+\end{equation}
+a multilayer perceptron with joint $(u,v)$ output, trained by minimising the
+squared error masked to finite targets, with early stopping on a validation
+split; the architecture and training schedule are the candidate program
+selected by the evolutionary search (\texttt{candidate.py} of the run).
+
+\section{Alternative truth tiers}
+
+The same predictions are also scored against three other versions of the
+radar current built from the hourly record $u(t)$ at each cell: the raw hourly
+value; and two zero-phase Butterworth low-passes of order 2, applied forward
+and backward (\texttt{filtfilt}), with cutoff periods of 18 and 48 hours. The
+headline 25-hour target is the centred boxcar
+\begin{equation}
+\bar u_{25}(t) = \frac{1}{25}\sum_{k=-12}^{12} u(t + k\,\text{h}),
+\label{eq:boxcar}
+\end{equation}
+whose power response $|H(f)|^2$ has its first null at $f = 1/25\ \text{h}^{-1}
+= 0.96$ cycles per day. Tiers are scored on the rows where every tier is
+finite.
+
+% ------------------------------------------------------------------ END BODY
+
+\end{document}

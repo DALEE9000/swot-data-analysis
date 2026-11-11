@@ -24,6 +24,23 @@ REGION_META = {
               [-68.4, 15.8], [-63.8, 19.6]),
     "ushi":  ("Hawaii",             "ushi/ushi_6km_Resolution_hourly_2010_2025.nc4",
               [-159.4, 19.3], [-154.3, 22.1]),
+    # European HFR node and IMOS ACORN regions (science orbit only, added
+    # 2026-11-05). Raw archives are the monthly files written by
+    # scripts/hfr_convert_networks.py under HFR_DATA_ROOT; the pre-built
+    # pkls live in the local experiments/ mirror, nothing for these is on S3.
+    "eu_biscay":  ("Bay of Biscay (Basque)",     "eu_biscay_5km_Resolution_hourly",  [-4.2, 43.1], [-1.3, 44.4]),
+    "eu_galicia": ("Galicia / N Portugal",       "eu_galicia_6km_Resolution_hourly", [-10.2, 41.4], [-8.0, 43.9]),
+    "eu_wmed":    ("Western Mediterranean",      "eu_wmed_3km_Resolution_hourly",    [-0.6, 38.2], [3.6, 42.3]),
+    "eu_tirlig":  ("Ligurian / Tyrrhenian",      "eu_tirlig_2km_Resolution_hourly",  [7.0, 38.4], [12.6, 44.6]),
+    "eu_gbight":  ("German Bight",               "eu_gbight_2km_Resolution_hourly",  [5.8, 53.4], [9.0, 55.6]),
+    "eu_norway":  ("Western Norway",             "eu_norway_5km_Resolution_hourly",  [3.8, 59.4], [6.2, 62.2]),
+    "au_rot":     ("Rottnest Shelf (AU)",         "au_rot_4km_Resolution_hourly",     [114.4, -32.7], [115.9, -31.2]),
+    "au_turq":    ("Turquoise Coast (AU)",        "au_turq_6km_Resolution_hourly",    [113.4, -31.6], [115.6, -29.4]),
+    "au_cof":     ("Coffs Harbour (AU)",          "au_cof_1km_Resolution_hourly",     [152.9, -31.1], [154.6, -29.4]),
+    "au_newc":    ("Newcastle (AU)",              "au_newc_6km_Resolution_hourly",    [151.4, -33.6], [153.6, -31.9]),
+    "au_sag":     ("South Australia Gulfs (AU)",  "au_sag_4km_Resolution_hourly",     [134.4, -36.6], [138.6, -33.9]),
+    "au_nwa":     ("North West Shelf (AU)",       "au_nwa_7km_Resolution_hourly",     [113.4, -22.1], [116.1, -19.4]),
+    "au_corl":    ("Coral Coast (AU)",            "au_corl_6km_Resolution_hourly",    [111.3, -32.5], [116.4, -27.6]),
 }
 
 # Regions with a non-empty HFR target per mission (akns radars have been dark

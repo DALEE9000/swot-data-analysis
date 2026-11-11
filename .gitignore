@@ -206,3 +206,5 @@ CLAUDE.md
 !/experiments/evolve/*/full_run.log
 
 *.err
+docs/methods-equations/*.aux
+docs/methods-equations/*.log

@@ -7,6 +7,437 @@ Convention: newest entry first; one `##` section per date; record *why* alongsid
 
 ---
 
+## 2026-11-09 — ERA5 winds for the 13 new regions; last two movies and the SWOT-era cuts
+
+### 22:52 David: "yes do those three tasks. go / and do ERA5 winds"
+
+The three render steps that the memory kill of Nov 8 had interrupted were restarted as one sequential chain (usegc re-render from 2024-07-01, then the North America continent from the same date, then `--assemble-only --since 2023-04-01` for every region and continent). Logs `render_S6.log`, `render_S7.log`, `render_since.log` and `chain3.log` on Z: under `archive/hfr_anim/`.
+
+ERA5: `build_era5_winds.py --mission science` for the six European and seven Australian regions, from the public NCAR mirror `s3://nsf-ncar-era5` (AWS Open Data, anonymous, egress paid by the bucket owner, so $0; the estimate given before launch was ~36 GB streamed). Window Jul 2023 to Jul 2024, the same window the US pkls have, i.e. science cycles 001-016.
+
+### 23:15 ERA5 was 20 minutes into the first month with nothing written
+
+The script opened each monthly file lazily through `s3fs` and subset it once per region. The NCAR files are 1.5 GB per variable per month, gzip-compressed HDF5 with chunks of 27 h x 139 lat x 277 lon, so every region pulled its own chunk columns for the whole month and the thirteen regions (clustered in two places on the globe, so largely the same chunks) re-fetched the same bytes with no cache between them. At the ~40 MB/s the connection gives, the first month alone was heading past 30 minutes. Fix: one `fs.cat()` GET per file into memory (`io.BytesIO`, 1.5 GB), then `xr.open_dataset(engine="h5netcdf")` on the buffer and all thirteen subsets locally. Months then took ~2 minutes each; the 13 months finished at 23:46 and the thirteen pkls were written (8 to 60 MB each, 9528 hours, 10x10 to 24x24 cells). The process exited 139 (segfault in the h5netcdf/s3fs teardown after its own "done." line); the pkls check out: hourly axis without gaps, longitude monotone after the prime-meridian stitch for the western Med (-1.0 to 4.0), winds within +-23 m/s, no NaNs.
+
+Still open: the same winds for cycles 017-058 (Aug 2024 to Oct 2026, 27 more months for all 19 regions, ~80 GB more streamed, $0) so the new cycles can be used as test rows with the full feature set. Not launched; needs David's word.
+
+### 03:15 (2026-11-10) The campaign is complete
+
+Chain finished at 03:11: usegc movie (5423 frames, 60 MB, 23:45), North America (6127 frames, 55 MB, 02:12; 858 frames each redone from 2024-07-01 so the SWOT panel runs to Nov 2026), then the 22 SWOT-era cuts (1315 frames each, 2023-04-01 to 2026-11-05, 13 to 71 MB; 03:11). Every HFR+SWOT product now exists: 19 region movies, 3 continent movies, 22 `_since2023` cuts, 3.1 GB on Z: behind the `docs/figures/hfr_animations` junction. The continent re-render ran at 7 to 9 s per frame instead of 4.6 because the ERA5 stream shared the CPU; sequential jobs would have been faster in total.
+
+What the campaign leaves in place: the full radar records for 19 regions (US 2006/2012 to Aug 2026 from NCEI, Europe 2016/2019 to Oct 2026, Australia 2009 to Nov 2026) as hourly archives on Z:, every SWOT science cycle 001-058 regridded into each region's pkl, ERA5 10 m winds Jul 2023 to Aug 2026 for every region, and the movies above. Not done: the colocation `hfr` phase (25-hour radar targets) for cycles 017-058, so the new cycles are not yet training or test rows; Sep-Oct 2026 ERA5 (mirror lag); COSYNA radar after Jun 2023 (the node hangs on those months).
+
+### 23:55 David: "yes get all that ERA5 too"
+
+The NCAR mirror ends at Aug 2026 (listing checked), so the extension is Aug 2024 to Aug 2026, 25 months, 19 regions; Sep and Oct 2026 are not on the mirror yet and the same command picks them up when they appear. `build_era5_winds.py` got a `--months START END` override and an append mode: when a region's pkl exists only the requested months absent from its time axis are fetched, cut, concatenated onto the existing record and saved, so the US pkls were extended in place rather than rebuilt. Launched 23:58 next to the North America render (log `SWOT_L3/science/era5_ext.log`).
+
+### 00:57 (2026-11-10) MemoryError on the usegc concat; per-month disk cache
+
+uswc saved (Jul 2023 to Aug 2026, 27,792 hours, 791 MB), then the usegc concat failed with `Unable to allocate 1.15 GiB` while 21 GB of RAM was still free: the process held every region's 25 months in memory on top of the two 1.5 GB file buffers, the North America render held ~25 GB, and the Windows commit limit (RAM plus page file) was what ran out. Everything streamed for the other 18 regions was lost. Fix: every (region, month) subset is pickled to `experiments/<rid>/era5/_months/` the moment it is cut, the final concat reads one region at a time and deletes its month files after the save, and a month whose regions are all cut already is not downloaded again, so a crash costs one month and the run resumes. Rerun 01:00 to 02:10 (log `era5_ext2.log`; ~2 min per month alone, ~5 min while the render was on the CPU). All 19 science pkls now span 2023-07-01T00 to 2026-08-31T23 hourly without gaps or NaNs (checked), 16 MB (glna) to 2.46 GB (usegc). Both ERA5 runs exited 139 after their own "done." line, a segfault in the h5netcdf/s3fs teardown, harmless.
+
+## 2026-11-07 — Full radar records, every SWOT cycle, HFR+SWOT animations per region and continent
+
+### 01:35 What David asked and the plan
+
+David's answer to "how much more can we fetch?" was: do (1) refetch the US gaps and (2) extend Europe and Australia, fetch all SWOT cycles, save to Z:, and make animations of HFR and SWOT across all times, per region and per continent. Everything here is free HTTP or the AVISO SFTP account; nothing touches S3.
+
+Server inventory before starting: the European node answered again (it had timed out the evening before) and its aggregated datasets run from 2019; IMOS ACORN holds Rottnest 2010-2026, Turquoise Coast and South Australia 2009-2026, Coffs 2012-2026, Newcastle 2017-2026, Coral Coast 2019-2026, North West Shelf 2021-2026 (Capricorn Bunker and Bonney Coast end in 2017 and have no region config, so they were left out). AVISO's `l3_lr_ssh/v3_0/Expert` has two folders: `reproc` with science cycles 001-032 (plus the calval 474-578) and `forward` with 032-058, cycle 058 ending 2026-10-24; granules are only 11 MB, so the 90 s per granule seen in the first campaign is SFTP latency, not volume. HFRNet's THREDDS server resolved in DNS but refused every connection, so the US part waits.
+
+### 01:40 Radar fetches launched
+
+Three background jobs write to the Z: archive: European node networks in two streams (EUSKOOS, Galicia, Ibiza, DeltaEbro, ICATMAR in one; TirLig, ARPAS, Vestlandet in the other, followed by COSYNA restricted to 2019-01 .. 2023-06 because German Bight requests from Oct 2023 are what hung the node last time), each 2019-01 .. 2026-10, and the seven active IMOS sites 2009-01-01 .. 2026-11-06. Rates at launch: Biscay months in 15 s, TirLig months (30 MB) in 45 s, IMOS about 12 files per second, so Europe takes a few hours and Australia about a day. `hfr_convert_networks.py` got `--start/--end` so the monthly archives can be extended over the new months afterwards (it skips months already converted).
+
+### 01:50 SWOT cycles 017-058 for all 19 regions
+
+`build_science_colocations.py` now lists both the reproc and forward folders per cycle (reproc wins when a pass is in both), takes `--cycles 017-058`, and a `--manifest-tag` so parallel workers keep separate manifests and temp granules; the first launch without the per-worker temp file had four processes overwriting one `_tmp_granule.nc`, caught within minutes and relaunched. The pkl phase changed from "exists, skip" to append mode: an existing pkl is loaded and only cycles with local segments that it lacks are regridded and added, which is what lets the US regions (whose cycle 001-016 segments were deleted after the S3 upload) extend without re-downloading. Four workers over cycles 017-027, 028-038, 039-048, 049-058; 184 unique passes per cycle across the 19 regions; measured 65 s per granule per worker, so the 7,700 granules take about a day and a half.
+
+### 02:05 HFR gap fetcher for HFRNet (ready, server down)
+
+`fetch_hfrnet.py` compares the local archive's hours per calendar month with the server's time axis and plans (a) months with no local hours at all and (b) everything after the last local hour; partly present months are left alone so no hour is duplicated when the hourly readers concatenate. Output is one zlib month file in the archive's own naming (`<rid>_6km_Resolution_Hourly_RTV_best_YYYYMM01_YYYYMMDD.nc4`, u/v/hdop/number_of_sites), fetched a day per DAP request. From the frame census the empty months after each network matured are: uswc 2015-04, 2015-06, 2016-06, 2017-06; usegc 2025-01 .. 2025-06; prvi 2023-10 (its 2010-2013 and 2017-18 holes look like real outages and are also planned, cheap to try); ushi 2013-01, 2022-03..05, 2022-08..09, 2023-10; glna 2023-10, 2024-09..10, 2025-02; gak none. Plus the tails: every US archive ends between Apr and Jul 2025 and the server runs to the present. A background probe retries the server every ten minutes and the fetch starts when it answers.
+
+### 02:10 HFR and SWOT side by side
+
+`animate_hfr_swot.py`: left panel the daily-mean radar current, right panel the SWOT L3 geostrophic current (`ugos_filtered`, `vgos_filtered` from the regridded pkls, science and calval) on the swaths that crossed the box that day, same cmocean speed scale 0-1 m/s and the same arrow scale so the eye compares them directly. One frame per calendar day over the union of the two records, blank panels where a source is missing; when no pass fell on a day the most recent one up to ten days old is drawn and the title gives its age, because a region sees SWOT only every few days and a mostly-empty panel reads as broken. Radar is reduced once to a daily-mean cache per region and year (NetCDF on Z:, about 1 MB per year for the small regions) that is rebuilt only when the archive gets newer files, and a rebuild deletes that year's frames for the region and its continent so they re-render; new SWOT cycles are handled by `--redo-from`. Continents (North America, Europe, Australia) reuse the same figure with every region's grid drawn on one map, panels stacked when the box is wide. A Rottnest test frame on 2023-08-03 showed the two ascending/descending passes next to the radar field, about 1 s per frame. Four render jobs are running (uswc with the Australian regions; usegc with the European ones; prvi, glna; ushi, gak), continents after all caches exist. The region frames made yesterday under `archive/hfr_anim_frames/` are untouched; this is a second product.
+
+### 02:10 (2026-11-08) C: at 98 %: movies and SWOT pkls moved to Z:
+
+David saw C: down to 19.5 GB. The repo's `experiments/` holds 88 GB (pkls, colocations, targets) and `cache/` 14 GB, both from before; the day added 2 GB of movies, and the pending pkl append would add about 25 GB (usegc's 3.3 GB pkl grows with 42 more cycles). Moved `docs/figures/hfr_animations/` and the 19 `experiments/<region>/swot_cycles/` folders (8.5 GB) to the Z: mirror of the repo and left directory junctions in their place, so every path in the scripts and the app still resolves; deleted the 3.4 GB of Nov 5-6 HFR-only frames under `archive/hfr_anim_frames/` on C: (David: do not save frames; the daily MP4s exist, the coverage table in docs/model-data.md stays as computed). C: free went from 19.5 to 33 GB.
+
+### 01:30 (2026-11-08) SWOT-era cuts
+
+David watched a movie and saw no SWOT: at 24 fps the prvi film is 3 min 55 s for 2010-2026 and SWOT exists only from 2023, so the right panel is empty for the first 3 min 10 s and the comparison year is a 15 s stretch near the end (and blank again after Jul 2024 until the new cycles are appended). `animate_hfr_swot.py --since 2023-04-01` now also writes `<name>_hfr_swot_since2023.mp4` from the frames on or after that day; with `--assemble-only` it writes only the cuts. Queued to run after the Jul-2024-onward re-render.
+
+Overnight (Nov 7-8): all radar fetches finished (Europe 10 networks, IMOS 7 sites at ~500k hourly files, NCEI 47k files for the US gaps and the Apr-2025 to Aug-2026 tails); all converted; the six US and seven Australian region movies re-rendered on the full records; North America and Europe continents done; Australia continent rendering. SWOT: 26 of 42 cycles complete by 01:00 with twelve workers (four more added at 23:40 on the tail of each range); the download end triggers the pkl append (three parallel jobs) and five re-render jobs for every frame from Jul 2024 on. Three processes (the North America render and the Coffs and South Australia converters) died silently at 18:33 on Nov 7 with nothing in their logs or the system log; all were resumed from where they stopped, and the monitor line now counts live python processes.
+
+### 12:20 HFRNet is gone; the US record lives at NCEI
+
+The Scripps HFRNet THREDDS server never answered (its DNS resolves, connections time out) because CORDC retired it: IOOS now points real-time totals at NDBC's THREDDS (`dods.ndbc.noaa.gov/thredds/catalog/hfradar.html`) and the CoastWatch and PacIOOS ERDDAPs mirror that, but all of them hold only the last three months (Aug to Nov 2026). The full record is NOAA NCEI's HF radar RTV archive, plain HTTPS directory listings by year, month and region, one NetCDF per hour from June 2006 to Aug 2026 (the archive lags about three months). Most hours up to mid-2025 exist twice, an SIO file (the HFRNet product, ~280 KB for the West Coast) and an NDBC one (~120 KB); from Aug 2025 there is one producer under a new `rtv-<region>-6km-uwls_v1r0_...` naming. `fetch_hfrnet.py` was rewritten for it: same plan logic (empty local months plus everything after the last local hour), files saved in the archive's own one-per-hour naming so every reader picks them up, SIO preferred, 25-hour averages skipped, eight download threads. The plan: uswc 24 months, usegc 19, gak 13, glna 20, prvi 33, ushi 21, about 95,000 files and 25 GB; two streams started at 12:22. April 2015, the first uswc hole, has its full 1,440 files on NCEI, so those holes were fetch gaps in our archive, not outages.
+
+### 06:40 Continent maps: arrows by pixels, not by grid
+
+The first North America continent frames were black blobs: arrow spacing was "one in every grid/30 cells" and arrow length "1 m/s = a sixth of the panel height", both fine for one region filling a panel and wrong when six regions are specks on a hemisphere. Both are now in pixels: arrows every ~30 px from the panel's degrees-per-pixel and the grid spacing, length 170 px per m/s on region panels (what they had) and 60 px per m/s with a thinner shaft on continent panels. Region movies already rendered are unchanged by construction. Job A (uswc plus the seven Australian regions on their current archives), C (prvi, glna) and D's ushi are done; usegc, gak and the six European regions are rendering; North America restarted with the fix.
+
+Fetch notes from the morning: EUSKOOS Aug 2024 and Galicia Dec 2025 came back as whole-record files (250 MB and 1 GB, the node glitch already handled by the converter's time slice); COSYNA publishes 20-minute maps, so its "hourly" month files hold ~2,170 steps; the node's records per network are EUSKOOS and Galicia from 2019, Ibiza and DeltaEbro from 2019, ICATMAR from Apr 2023, TirLig from Aug 2016 (fetched too), ARPAS Nov 2022 to Jul 2025, Vestlandet from Oct 2023, COSYNA from 2019. The IMOS fetcher died once on a connection reset inside a file body (its retry only wrapped the request), fixed and resumed from Turquoise Coast; Rottnest alone is 82,586 hour files with 2,568 missing days over 2010-2026.
+
+Disk note: C: is at 98 % (23 GB free), so the cache and frames went to Z: via `HFR_ANIM_ROOT`; the 1.6 GB of 800 px frames parked yesterday under `archive/hfr_anim_frames_100dpi/` are still waiting for David to delete.
+
+## 2026-11-06 — Radar animations re-rendered: sharper, Computer Modern
+
+### 11:20 200 dpi frames, project font, higher-rate encoder
+
+David: "the image quality is quite blurry, can we sharpen it? ... can we
+use LaTeX font in the animations". Two causes of the blur: frames were 800
+pixels wide (100 dpi) and the shared `assemble_animation` helper encodes at
+imageio quality 8. The script now renders at 200 dpi (1600 pixels wide, the
+height rounded to a multiple of 16 pixels so ffmpeg does not resize) and
+writes the MP4 itself with libx264 at quality 10, yuv420p, which players
+and browsers decode without a plugin. Font: the same Computer Modern
+settings the paper figures use (cmr10 serif, cm mathtext, no unicode
+minus). cmr10 has no degree glyph, so the gridline labels use cartopy's
+longitude and latitude formatters with a mathtext degree sign; cmr10 also
+has no vertical bar, which rendered as a dash in the title, so the title
+separators are commas. The first set of frames was moved aside to
+`archive/hfr_anim_frames_100dpi/` (1.6 GB, can be deleted) and all nineteen
+regions relaunched as four jobs at 11:20; the German Bight test took 0.9 s
+per frame at the new size, so about three hours for the US records.
+
+14:10 Re-render finished, 2 h 50 min for all nineteen regions, same frame
+counts as the first pass, no errors. MP4s total 935 MB (US West Coast alone
+450 MB at 1600 px and quality 10, against 112 MB before); frames 3.4 GB in
+`archive/hfr_anim_frames/`.
+
+19:15 David: "the videos wont play...". ffprobe showed the cause: imageio
+quality 10 means lossless x264, and lossless x264 switches to the High
+4:4:4 Predictive profile, which Windows Media Player, browsers and
+hardware decoders refuse. The writer now passes CRF 18 in the standard
+High profile (visually lossless, plays everywhere, about half the size).
+All nineteen MP4s re-encoded from the cached frames with
+`--assemble-only`, no re-rendering.
+
+19:40 David asked how many dates are missing elsewhere and whether we keep
+a record of the spans. We did not; only the archive filenames carried year
+ranges. Added `--coverage` to the animation script (days with data per
+region from the frame cache, gaps of a week or more listed) and wrote the
+table into `docs/model-data.md` under a new section. Findings: the three
+western Med, Ligurian and Galicia archives are complete for Jul 2023 to Jul
+2024; Norway misses one day; the long US records miss 60 (gak) to 1,211
+(prvi, mostly 2010 to 2013 and Sep 2017 to Feb 2018) days. Two gap patterns
+point at the archive rather than the radars: October 2023 is absent in
+prvi, ushi and glna together, and uswc misses whole calendar months (Apr
+and Jun 2015, Jun 2016, Jun 2017) while usegc misses Jan to Jun 2025. These
+are probably HFRNet files never fetched; October 2023 sits inside the
+science training window, so refetching it is worth doing before the next
+scoring pass.
+
+## 2026-11-05 — Daily animations of every radar region
+
+### 16:10 One script, nineteen regions, daily-mean frames
+
+David: "can you make animations of every single hfr region we have in the
+world for whatever times we have?" Built `scripts/animate_hfr_regions.py`.
+It walks each region's hourly archive on Z: (the six US HFRNet 6 km
+archives over their full records, 2010 or 2012 to 2024/2025, and the
+thirteen converted European and IMOS archives over July 2023 to July 2024),
+averages each calendar day, and draws one frame per day that has any finite
+cell: speed as a sequential colour field fixed at 0 to 1 m/s for every
+region so the continents compare, arrows thinned to about thirty across the
+grid, Natural Earth coastline for orientation, cell count in the title.
+Days with no data are skipped rather than drawn empty, so the date in the
+title jumps over radar outages. Frames are cached as PNGs under the
+gitignored `archive/hfr_anim_frames/<region>/` and skipped when present, so
+a hibernation or crash costs nothing; the MP4 is assembled with the
+project's existing `assemble_animation` helper at 24 frames per second.
+
+Why daily means rather than hourly: the US archives are up to fifteen years
+of hourly fields (Hawaii alone is 117,709 one-hour files), which would be
+130,000 frames per region; a day per frame gives three to four minutes of
+video for the long US records and about fifteen seconds for the new regions,
+and the daily mean removes the tidal and inertial signal the 25-h target
+also removes, so the animation shows the same low-frequency circulation the
+models are scored on. Rendering reuses one figure per region and only
+updates the colour array, arrow vectors and title, which keeps a frame
+under a second. Two layout bugs found on the German Bight test: the figure
+height used a cosine-corrected aspect, but PlateCarree draws degrees square,
+so the map sat in a tall box of white space; and the pixel height must be a
+multiple of 16 or ffmpeg resizes the video. Both fixed before the full run.
+
+Launched as four parallel processes (Hawaii; Puerto Rico; US West Coast,
+Gulf of Alaska and Europe; US East-Gulf, Great Lakes and Australia) at
+16:06, about 29,000 frames in all, estimated two hours. Outputs
+`docs/figures/hfr_animations/<region>_daily.mp4`, listed in the figure
+library; MP4s are gitignored by the repo-wide rule.
+
+16:20 First five minutes showed Hawaii and Puerto Rico at about 15 s per
+day: the one-file-per-hour archives were being opened with
+`open_mfdataset`, which on the USB drive with four processes contending
+took 4.8 s per day against 1.0 s for a plain per-file open and `concat`.
+Switched to the latter and relaunched those two jobs (cached frames kept).
+Measured per-frame costs with the contention: a 14-day US West Coast file
+loads in 17 s, the daily resample in 1 s, one frame renders in 0.85 s.
+Revised estimate: about three hours for the long US records.
+
+18:50 All nineteen animations finished, 25,870 frames, 248 MB of MP4, 1.6 GB
+of cached PNG frames. Two more problems on the way: Hawaii skipped three
+days in September 2016 whose hourly files are not readable NetCDF (three of
+5,001 days, left out); and the Gulf of Alaska job died with a MemoryError
+because its archive is in year-long files (9,116 hours by 223 by 413 cells,
+3 GB per variable) and the reader loaded and then sorted a whole file with
+four jobs sharing memory. The reader now opens multi-day files lazily and
+reads one day at a time, which also dropped the per-frame cost to 0.6 s.
+Frame counts and spans: uswc 4,521 (2012-01 to 2024-12), usegc 4,729 (2012-01
+to 2025-07), prvi 4,423 (2010-01 to 2025-06), ushi 5,001 (2010-07 to
+2025-06), gak 2,754 (2017-11 to 2025-07), glna 677 (2022-08 to 2025-04);
+Europe 296 to 397 days each except German Bight 56; Australia 287 to 386
+except Coffs 47 and South Australia 194 (radar record Aug 2023 to Feb 2024
+only, a gap the colocation count of 96 of 161 passes had already hinted at).
+
+## 2026-11-04 — New radar networks: Europe and Australia
+
+### 11:40 Downloads started for fourteen new regions
+
+David, after the data-coverage discussion: "i would like to add more data from
+other radar networks. i think adding point measurements from drifters adds
+some complication", then "get whatever SWOT we need" and a time estimate
+before disconnecting the machine. Agreed on both points: drifters would need
+a second colocation framework (moving points, 15-m drogue, wind slip, no cell
+for the per-cell rungs), while other radar networks reuse the whole pipeline
+and turn the regional table into a cross-continent test of the same method.
+
+Catalogue check (free, no login): the European HFR node serves hourly
+gridded totals as one aggregated THREDDS dataset per network with a NetCDF
+subset service, 2019 to present; IMOS ACORN serves per-hour files of about
+125 KB per site, 2023 and 2024 present. Chosen regions (bounding boxes from
+the catalogue grid bounds plus 0.5 degree): eu_biscay (EUSKOOS), eu_galicia,
+eu_wmed (Ibiza, Ebro, Catalan), eu_tirlig (Ligurian/Tyrrhenian, Tuscany,
+Sardinia), eu_gbight (COSYNA), eu_norway (Vestlandet); au_rot, au_turq,
+au_cof, au_newc, au_cbg, au_sag, au_bonc, au_nwa. `find_swaths` gives 82
+unique science passes over the fourteen boxes, so about 1,300 granules over
+cycles 1 to 16. Added the boxes to `REGIONS` in
+`build_science_colocations.py` (additive; no `HFR_SOURCES` entry, the HFR
+for these comes from local files). Wrote `scripts/fetch_hfr_eu.py` (NCSS,
+one file per network per month, Jul 2023 to Jul 2024, v3 with v2.2 fallback)
+and `scripts/fetch_hfr_imos.py` (day-catalogue listing then fileServer, eight
+threads, missing days recorded). Both skip existing files, so a dropped
+connection costs nothing.
+
+Launched three background jobs at 11:41: the SWOT download phase for the six
+European regions followed by the eight Australian ones (AVISO SFTP, logs in
+`SWOT_L3/science/download_eu.log` and `download_au.log`), the European HFR
+fetch, and the IMOS fetch (logs beside them). Estimate given: 200 to 330 GB
+of SWOT granules over SFTP, 8 to 14 hours, kept on disk only as about 6 GB
+of region segments; about 3 GB and 30 minutes for Europe; about 9 GB and one
+to two hours for IMOS. Cost zero, nothing touches S3. Disk on C: is 35 GB
+free, enough for the segments and the radar files. AVISO credentials are now
+read from the gitignored `.env` at the repo root at launch time only.
+
+First European subset request failed with HTTP 400: the node's NCSS grid
+service rejects `accept=netcdf4` ("Format netcdf4 is not supported for
+Grid data request"); switched to `accept=netcdf` (NetCDF-3), a month of
+EUSKOOS is 3.4 MB, relaunched 11:45. IMOS runs at about nine files per
+second, so one site-year takes about a quarter of an hour.
+
+12:05 David: "actually i will work from home today. can you save this data to
+the Z drive, which is now connected?" Disk was again flagged Offline;
+brought online with elevated `Set-Disk`. Stopped the three jobs, deleted
+`.part` files, checked every saved SWOT segment opens (all six did), moved
+`SWOT_L3/` to `Z:\...\SWOT-data-analysis\SWOT_L3` and left a directory
+junction at the repo path so the colocation script needs no change; moved the
+radar folders to the Z: archive beside the HFRNet ones and relaunched the two
+fetch scripts with `HFR_DATA_ROOT` pointing there. Everything resumed from
+where it stopped.
+
+12:45 IMOS finished in about 50 minutes, all on Z:. Files per site over
+July 2023 to July 2024 (8,760 possible): Rottnest 5,294, Turquoise Coast
+8,291, Newcastle 7,029, North West Shelf 6,232, South Australia Gulfs
+2,991, Coffs Harbour 418 (dark most of the year). Capricorn Bunker and
+Bonney Coast returned nothing: their THREDDS folders end in 2017, so both
+regions are dropped. The catalogue also has CORL, "Coral Coast" (WA,
+28 to 32 S, 112 to 116 E, 2019 to present), a wider grid spanning the
+Rottnest and Turquoise Coast footprints; added as `au_corl` and queued.
+
+14:55 European node: eight networks complete (Basque, Galicia, Ibiza, Ebro,
+Catalan, Ligurian/Tyrrhenian, Sardinia; Tuscany is access-restricted, HTTP
+401, dropped). German Bight requests then began timing out at ten minutes,
+first October then November 2023, and by 14:50 the server answered nothing at
+all, not even its catalogue page, so the fetch was stopped and a watcher left
+running that probes the catalogue every five minutes and resumes German
+Bight and Norway when it returns. Whether our long monthly requests wedged
+the server or it fell over on its own is unknown; a one-day request also
+hung, so it was not the window size.
+
+20:30 Server back at 20:05 after five hours. The German Bight v3 dataset
+hangs on any request from October 2023 onward, even a six-hour window,
+while its catalogue entry claims coverage to the present; the v2.2 dataset
+ends in October 2022. So German Bight keeps July to September 2023 only
+(SWOT cycles 1 to 4) and is parked; retry another day, possibly a broken
+aggregation on their side. Norway's record starts 2023-10-09 (the earlier
+months returned HTTP 400 "does not intersect actual time range"), so its
+fetch runs from October 2023; 400 is now a permanent skip like 401/404.
+
+2026-11-05 09:00 Europe finished at 03:46 (620 granules, about 1,030
+segments, 16 hours). Australia started 03:47, 33 unique passes over seven
+regions, about 45 minutes per cycle. At 08:38 the SFTP transfer silently
+stalled mid-granule (temp file frozen at 4.5 MB for twenty minutes, process
+alive, no exception, so the reconnect logic never fired); killed and
+relaunched at 09:00, resumed from cycle 7 with nothing lost. If this recurs
+the fix is a socket timeout or keepalive on the paramiko transport.
+
+12:05 Loader written: `scripts/hfr_convert_networks.py` turns the two
+foreign layouts into the HFRNet-style monthly archive that
+`build_hfr_multires.py` already reads (dims time/lat/lon, u/v, range-dated
+filenames), so the target builder needed only thirteen new rows in its
+table. Findings from the files: European totals are on regular 1-D grids
+(2 km Ligurian/Sardinia/German Bight, 3 km western Med, 5 km Basque/Norway,
+6 km Galicia) with QC flags 1 and 4 only; IMOS CODAR sites (Rottnest,
+Coffs, South Australia, North West Shelf) are regular 1-D, but the WERA
+sites (Turquoise Coast, Newcastle, Coral Coast) are curvilinear 2-D grids,
+so those are nearest-cell binned through a KD-tree onto a regular grid at
+native spacing; flags 1 and 2 kept. Regions with several networks (western
+Med: Ibiza, Ebro, Catalan; Ligurian: TirLig, Sardinia) are binned to the
+finest native spacing and averaged where they overlap. One surprise: the
+Basque July 2024 subset request had returned the network's entire 2019 to
+2026 record (250 MB), so the converter now clips every month to its
+calendar bounds. SWOT pkl phase run for the six European regions; ERA5
+and DUACS region tables extended (ERA5 subset also fixed for a box that
+crosses the prime meridian, the western Med); ERA5 not pulled, it is an
+S3 read and needs David's approval.
+
+12:50 European regions through the colocation chain: SWOT pkls (116 to 231
+pass entries per region), converted archives, and 25-h radar targets via
+`build_hfr_multires.py` with thirteen new rows in its table. Colocated passes:
+Biscay 114 of 116, Galicia 126, western Med 172, Ligurian/Tyrrhenian 231,
+Norway 156 of 201 (radar record starts October 2023), German Bight 20 of 180
+(only July to September 2023 radar, see above). The builder names outputs
+`hfr_science_<region>_<suffix>.pkl` where the suffix repeats part of the
+region name (it splits on the first underscore); copied each to the default
+`hfr_science_<region>.pkl` the pipeline and `baselines_eval.py` expect rather
+than touch the builder. DUACS L4 pulled from Copernicus for all thirteen
+regions (3 to 27 MB each). Thirteen regions added to `presets.REGION_META`
+so `config_overrides` resolves them through the local mirror; GOES stays
+unset for them. Australian chain armed to run pkls and targets when the SWOT
+download and archive conversion finish.
+
+13:40 SWOT download finished for all thirteen regions: Australia 293
+granules in just under ten hours (one stall), 818 segments (Rottnest 83,
+Turquoise Coast 86, Coffs 93, Newcastle 108, South Australia 161, North West
+Shelf 116, Coral Coast 171); Europe 620 granules, about 1,030 segments. The
+whole SWOT store for the new regions is 606 MB on Z:, against roughly 170 GB
+transferred. Australian pkl and target steps running from the armed chain.
+
+14:05 Australian regions through the chain. Pkls 83 to 171 pass entries;
+colocated passes: Rottnest 68 of 83, Turquoise Coast 80 of 86, Coffs 9 of 93
+(radar up four months only), Newcastle 95 of 108, South Australia 96 of 161,
+North West Shelf 116 of 116, Coral Coast 158 of 171. All thirteen regions now
+have SWOT pkl, 25-h radar target and DUACS in the local mirror; Coffs Harbour
+and German Bight are too thin to score and will be reported as such. The only
+missing input is ERA5 wind, which the ladder needs on every row.
+
+(The loader and per-region pkl and target phases named here as still to
+build were done the next morning; see 12:05 to 14:05 above. ERA5 remains the
+one missing input.)
+
+## 2026-11-03 — Methods notes: R² and the climatology rung
+
+### 09:30 Written explanation of pooled R² and the per-cell climatology, for review
+
+David: "what do you mean reference is climatology", "how to compute
+climatology? just demeaning?", "i still don't get it", "wait i thought we
+measure point by point, not the entire region!", "so climatology is still
+pooled over region", "so we get a climatology per cell?", "and how does
+climatology compare to r squared. please also add these to research notes
+clearly so i can review". Z: drive ejected at the start of the exchange.
+
+New `docs/methods-notes.md` (indexed in the README tree), a plain-prose
+companion to the glossary, with two sections: how the project computes R²
+(one pooled number per region and component, regional held-out mean as the
+reference, predictions per row but score per list) and what the climatology
+rung is (per-cell training-period mean as a zero-input model, scored with the
+same pooled R²; worked two-cell example with the arithmetic; the two ways it
+differs from R²'s own reference, per-cell versus regional and training versus
+held-out; the day-to-day share as model R² minus climatology R²; the skill
+score and per-cell R² as alternative displays; the results table with the
+day-to-day share per region). The sticking point in the conversation was
+pooled versus per-cell scoring: predictions are per row, R² is per region, so
+a model is credited for reproducing the between-cell mean flow, and the
+climatology rung exists to make that credit visible. Future method questions
+get a section in the same file.
+
+### 11:00 One equation per ladder rung, from the code
+
+David, after walking through climatology, climatology + wind and SWOT
+calibrated + wind: "i think we should list equations for each regression
+no?" Added section 3 to `docs/methods-notes.md`: a table with the prediction
+equation and parameter count for all fifteen rungs, read directly from
+`baselines_eval.py` (`fit_linear` least squares with intercept, u and v fitted
+separately; `cell_linear` ridge-toward-global shrinkage with lambda 5 written
+out; `fit_ridge72` standardised with NaN to zero and alpha 1; Ekman rule 3 %
+at 45 degrees). Section 2 gained the full ladder tables with a
+champion-minus-climatology row. Point of the exercise: the paper's methods
+section can be lifted from this table, and the reader can see that every
+linear rung is the same least-squares fit with a different input set.
+
+### 11:40 LaTeX version of the equations
+
+David: "let's get these equations down in latex format somewhere" and "so all
+of these are regressions?" No manuscript exists yet, so
+`docs/methods-equations/methods-equations.tex` is a standalone article
+(pdflatex, amsmath, booktabs) whose body between the BEGIN BODY / END BODY markers can be
+`\input` into the paper: notation, pooled R² and RMSE with the block
+bootstrap, the skill score against climatology, every ladder rung as a
+numbered equation (fixed rules, climatology, the seven least-squares rungs,
+the per-cell shrinkage, ridge, the champion), and the truth tiers with the
+25-h boxcar. Given its own folder at David's request and compiled with
+TeX Live 2024 (two passes, no errors); the PDF is tracked beside the source,
+aux and log files ignored. Answer to
+the regression question, also in the notes: four rungs are fixed rules with
+no parameters, climatology is a lookup, every rung from climatology + wind
+to DUACS + wind is the same ordinary least squares with a different input
+set, per-cell linear and ridge are penalised least squares, and the champion
+is the one nonlinear fit.
+
+## 2026-11-02 — Z: drive jobs: rotary spectrum on real data, calval truth tiers
+
+### 11:10 Rotary spectrum rendered; calval tiers for three regions; tier guards in the figures
+
+David: "connected my Z drive. what tasks required it, the rotary power spectrum?"
+
+The WD Elements disk came up Offline again (Windows keeps the flag after a
+safe eject); brought online with an elevated `Set-Disk -Number 1 -IsOffline
+$false`.
+
+**Rotary spectrum** (`scripts/hfr_rotary_spectrum.py --regions usegc,uswc
+--start 2024-03-01 --end 2024-06-30`, 30 fully covered cells per region, about
+six minutes, mostly reading the archive). Written to
+`docs/figures/hfr_target/`. Reading of the figure is in the 2 November
+addendum to the research update: M2 dominant on both coasts, clockwise-only
+inertial bump at 1.27 cpd (usegc, 39.9 N) and 1.16 cpd (uswc, 35.5 N),
+counterclockwise excess at periods over five days on the East Coast (Gulf
+Stream), strong clockwise diurnal lines on the West Coast. The filter panel
+shows the 25-h boxcar's first null at 0.96 cpd and a 5 % side lobe near 1.5
+cpd, the 18-h Butterworth leaking half the diurnal/inertial band, the 48-h
+filter damping the 2-5 day band.
+
+**Calval tiers.** `hfr_tiers.py --run evolve_uswc_v1 --regions
+ushi,uswc,usegc` built raw, 18-h and 48-h tiers from the 2023 archive; the
+rebuilt 25-h mean matches the stored target exactly (r = 1.0000, rms 0.0000) in
+all three regions, so the tier files sample the same hours and cells the
+pipeline trained on. `baselines_eval.py --run evolve_uswc_v1 --regions
+uswc,usegc,ushi --buffer-days 7` re-scored the ladder on every tier (results
+in `experiments/evolve/evolve_uswc_v1/baselines/`). Numbers in the update
+addendum. Finding worth keeping: on the East Coast common subset (29 % of
+rows, the densest radar coverage) the per-cell linear model beats the
+retrained champion by 0.10/0.18, where the full-row table had them tied. The
+champion's parity there is subset-dependent.
+
+**Figure guards.** Hawaii has 127 rows finite in every tier; R² on that subset
+is meaningless (train-mean R² of -57). `fig_tiers` now drops regions with
+under 1,000 common rows and says so in the caption; the benchmark grid greys
+tier blocks under the same rule. The tiers figure also takes the champion
+label from the per-mission table and the caption's training-period wording
+from the mission, so the calval version no longer says "72 stencil cols" or
+"cycles 1-12". Calval figures regenerated; figure index, science README,
+replication task table updated.
+
 ## 2026-11-01 — Research update, calval on three regions, figures split by mission
 
 ### 14:30 Calval table for usegc and ushi; figure folders split into science / calval / hfr_target

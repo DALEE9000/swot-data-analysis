@@ -13,6 +13,12 @@ then uploads via AWS CLI conventions are handled by the caller.
 Usage:
     python scripts/build_hfr_multires.py --targets prvi_2km
     python scripts/build_hfr_multires.py --targets all
+    python scripts/build_hfr_multires.py --targets uswc_6km,usegc_6km   # append: only cycles missing from the pkl
+
+Append mode: when the target pkl (or, for a region's default resolution, the
+region's hfr_science_{region}.pkl) already exists, its cycles are kept and only
+the cycles present in the SWOT pkl but absent from it are colocated; default-
+resolution targets are saved to both files.
 """
 from __future__ import annotations
 
@@ -41,6 +47,15 @@ RAW_ROOT = Path(os.environ.get("HFR_DATA_ROOT", r"C:\Users\david\Documents\colum
 # (region, res) -> raw hourly folder. Defaults (6km, gak 2km) are built by
 # build_science_colocations.py; these are the additional resolutions.
 TARGETS = {
+    # default resolutions (what hfr_science_{region}.pkl holds); originally built
+    # by build_science_colocations.py from the S3 aggregates, which end in 2024/25,
+    # so cycles 017+ are appended from the local hourly archives here
+    "uswc_6km":   ("uswc", "uswc_6km_Resolution_hourly"),
+    "usegc_6km":  ("usegc", "usegc_6km_Resolution_hourly"),
+    "gak_2km":    ("gak", "gak_2km_Resolution_hourly"),
+    "glna_6km":   ("glna", "glna_6km_Resolution_hourly"),
+    "prvi_6km":   ("prvi", "prvi_6km_Resolution_hourly"),
+    "ushi_6km":   ("ushi", "ushi_6km_Resolution_hourly"),
     "uswc_500m":  ("uswc", "uswc_500m_Resolution_hourly"),
     "uswc_1km":   ("uswc", "uswc_1km_Resolution_hourly"),
     "uswc_2km":   ("uswc", "uswc_2km_Resolution_hourly"),
@@ -54,7 +69,28 @@ TARGETS = {
     "prvi_2km":   ("prvi", "prvi_2km_Resolution_hourly"),
     "ushi_1km":   ("ushi", "ushi_1km_Resolution_hourly"),
     "ushi_2km":   ("ushi", "ushi_2km_Resolution_hourly"),
+    # European HFR node and IMOS regions (2026-11-05): archives written by
+    # scripts/hfr_convert_networks.py; these are each region's only target.
+    "eu_biscay_5km":  ("eu_biscay", "eu_biscay_5km_Resolution_hourly"),
+    "eu_galicia_6km": ("eu_galicia", "eu_galicia_6km_Resolution_hourly"),
+    "eu_wmed_3km":    ("eu_wmed", "eu_wmed_3km_Resolution_hourly"),
+    "eu_tirlig_2km":  ("eu_tirlig", "eu_tirlig_2km_Resolution_hourly"),
+    "eu_gbight_2km":  ("eu_gbight", "eu_gbight_2km_Resolution_hourly"),
+    "eu_norway_5km":  ("eu_norway", "eu_norway_5km_Resolution_hourly"),
+    "au_rot_4km":     ("au_rot", "au_rot_4km_Resolution_hourly"),
+    "au_turq_6km":    ("au_turq", "au_turq_6km_Resolution_hourly"),
+    "au_cof_1km":     ("au_cof", "au_cof_1km_Resolution_hourly"),
+    "au_newc_6km":    ("au_newc", "au_newc_6km_Resolution_hourly"),
+    "au_sag_4km":     ("au_sag", "au_sag_4km_Resolution_hourly"),
+    "au_nwa_7km":     ("au_nwa", "au_nwa_7km_Resolution_hourly"),
+    "au_corl_6km":    ("au_corl", "au_corl_6km_Resolution_hourly"),
 }
+
+# targets that are their region's default resolution: saved to hfr_science_{region}.pkl too
+DEFAULT_RES = {"uswc_6km", "usegc_6km", "gak_2km", "glna_6km", "prvi_6km", "ushi_6km",
+               "eu_biscay_5km", "eu_galicia_6km", "eu_wmed_3km", "eu_tirlig_2km", "eu_gbight_2km",
+               "eu_norway_5km", "au_rot_4km", "au_turq_6km", "au_cof_1km", "au_newc_6km",
+               "au_sag_4km", "au_nwa_7km", "au_corl_6km"}
 
 MARGIN = np.timedelta64(31, "h")
 WINDOW = np.timedelta64(12, "h")  # 25-h centered mean = nearest sample ± 12 h
@@ -168,9 +204,7 @@ def build(target: str, force: bool = False) -> None:
     res = target.split("_", 1)[1]
     out = Path(f"experiments/{region}/hfr_target/"
                f"hfr_science_{region}_{res}.pkl")
-    if out.exists() and not force:
-        log(f"{target}: {out.name} exists — skipping")
-        return
+    default_out = out.with_name(f"hfr_science_{region}.pkl") if target in DEFAULT_RES else None
     folder = RAW_ROOT / folder_name
     files_idx = index_folder(folder)
     if not files_idx:
@@ -191,6 +225,16 @@ def build(target: str, force: bool = False) -> None:
         with open(partial, "rb") as f:
             result = pickle.load(f)
         log(f"{target}: resuming from checkpoint ({len(result)} cycles done)")
+    elif not force:
+        seed = out if out.exists() else default_out if default_out and default_out.exists() else None
+        if seed is not None:
+            with open(seed, "rb") as f:
+                result = pickle.load(f)
+            log(f"{target}: append mode, {len(result)} cycles already in {seed.name}")
+    todo = [c for c in swot if c not in result]
+    if not todo:
+        log(f"{target}: every cycle in the SWOT pkl is already colocated — skipping")
+        return
 
     n_ok = n_skip = 0
     t_start = time.time()
@@ -223,9 +267,11 @@ def build(target: str, force: bool = False) -> None:
         log(f"{target}/cycle_{cycle}: {len(interp_list)} colocated "
             f"({time.time() - t_start:.0f}s elapsed)")
     _save(result, out)
+    if default_out is not None:
+        _save(result, default_out)
     partial.unlink(missing_ok=True)
-    log(f"{target}: saved -> {out} ({out.stat().st_size / 1e6:.0f} MB, "
-        f"{n_ok} colocated, {n_skip} skipped)")
+    log(f"{target}: saved -> {out}{' and ' + default_out.name if default_out else ''} "
+        f"({out.stat().st_size / 1e6:.0f} MB, {n_ok} colocated, {n_skip} skipped)")
 
 
 def main() -> None:

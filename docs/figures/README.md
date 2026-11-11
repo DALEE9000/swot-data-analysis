@@ -37,7 +37,7 @@ rows are the same code retrained on each region (mean of seeds 42-44).
 |---|---|---|
 | `skill_ladder` | As the science ladder, three regions | calval main result |
 | `rmse_change` | As the science RMSE panel | companion |
-| `truth_tiers` | uswc only (tiers need the hourly archive; usegc and ushi tiers pending Z:) | filter sensitivity on the calval orbit |
+| `truth_tiers` | usegc and uswc (Hawaii omitted: only 127 rows are finite in every tier) | filter sensitivity on the calval orbit |
 | `benchmark_grid_u`, `benchmark_grid_v` | Full grid; tier columns with no data are hidden | audit view |
 
 ## hfr_target/ — how the radar target is defined (mission-agnostic)
@@ -46,7 +46,7 @@ Script: `scripts/hfr_rotary_spectrum.py` (needs the hourly archive: `HFR_DATA_RO
 
 | File | Shows | Use |
 |---|---|---|
-| `hfr_rotary_spectrum` (render pending Z:) | Top: rotary power spectrum of hourly radar currents, clockwise and counterclockwise, with tidal and inertial lines. Middle: fraction of variance passed by the 25-h running mean and the 18-h and 48-h Butterworth filters on the same frequency axis. Bottom: ten days of one cell raw and under the three filters | justifies the 25-h target; shows where tidal and inertial energy sits |
+| `hfr_rotary_spectrum` | Top: rotary power spectrum of hourly radar currents, clockwise and counterclockwise, with tidal and inertial lines. Middle: fraction of variance passed by the 25-h running mean and the 18-h and 48-h Butterworth filters on the same frequency axis. Bottom: ten days of one cell raw and under the three filters | justifies the 25-h target; shows where tidal and inertial energy sits |
 
 ## poster/ — the evolutionary search itself
 
@@ -59,6 +59,22 @@ Scripts: `scripts/poster_figures.py --run evolve_all_science_v1`,
 | `champion_architecture_gen031_00` | Block diagram of the champion's network as written in its candidate.py | what the search found |
 | `champion_architecture_simple` | Same, reduced to layers and widths for a slide | talk version |
 | `champion_importance` (+ `.json`) | Grouped permutation importance of the champion's input groups on the temporal holdout | which inputs the network leans on |
+
+## hfr_animations/ — daily-mean surface currents, every radar region
+
+Script: `scripts/animate_hfr_regions.py` (needs the hourly archives under
+`HFR_DATA_ROOT` or Z:). MP4s are gitignored; regenerate with the script.
+One frame per calendar day with data: daily-mean speed (cmocean `speed`,
+0 to 1 m/s on every region so they compare), arrows subsampled to about
+30 across the grid, 50 m coastline, cell count in the title. 1600 px wide
+(200 dpi), Computer Modern text, libx264 CRF 18 High profile, 24 fps.
+
+| File | Shows |
+|---|---|
+| `<region>_daily.mp4` | US HFRNet 6 km archives over their full record (uswc, usegc 2012-2024; prvi, ushi 2010-2025; gak 2017-2025; glna 2022-2025) and the European and IMOS regions over Jul 2023 - Jul 2024 |
+| `<region>_hfr_swot.mp4` | `scripts/animate_hfr_swot.py`: HFR daily mean on the left, SWOT L3 geostrophic current (ugos/vgos filtered) on the swaths that crossed the box that day on the right, same colour and arrow scales; every calendar day of the union of the two records, and when no pass fell on a day the most recent one up to 10 days old is shown with its age in the title. 2400 px wide, panels side by side for tall boxes and stacked for wide ones |
+| `<continent>_hfr_swot.mp4` | Same two panels over one map per continent (`north_america`, `europe`, `australia`), every region drawn on it |
+| `<name>_hfr_swot_since2023.mp4` | The same movies cut to 2023-04-01 onward (calval and science SWOT era), since the full-record films spend their first 3 minutes before SWOT existed |
 
 ## regions/ — study-area maps
 

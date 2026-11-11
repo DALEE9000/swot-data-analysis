@@ -124,7 +124,7 @@ history) was learned.
 ## Pending and next
 
 - Three-region calval table: done the same day, see the addendum below.
-- Rotary-spectrum render on real data (needs Z:).
+- Rotary-spectrum render on real data: done 2 November, see the second addendum.
 - Paired bootstrap of champion minus ridge on the same passes, to test the
   three-hundredths East Coast gap directly; regime decomposition of where the
   gain lives (distance from coast, wind speed, Gulf Stream edge).
@@ -163,3 +163,45 @@ earlier reading: with snapshot inputs, linear is enough almost everywhere, on
 both orbits. The West Coast calval margin (0.2 in v over per-cell linear) is
 now the single result that needs explaining, and the SST-on-science-orbit run
 is the experiment that explains it.
+
+## Addendum, 2 November 2026: the two jobs that needed the hourly archive
+
+**Rotary spectrum, real data** (`docs/figures/hfr_target/hfr_rotary_spectrum`).
+Thirty fully covered cells per region, March to June 2024. Both coasts show the
+same skeleton: a red continuum falling from multi-day periods, the semidiurnal
+M2 line as the tallest peak, the diurnal pair K1 and O1, and a clockwise-only
+bump at the local inertial frequency (1.27 cycles per day at 39.9 N on the East
+Coast, 1.16 at 35.5 N on the West). The differences are physical. On the East
+Coast the counterclockwise power exceeds the clockwise at periods longer than
+about five days, which is the Gulf Stream meander band; on the West Coast the
+diurnal lines are far stronger and clockwise, the sea-breeze and diurnal-tide
+response of the California shelf. The middle panel explains the tier results.
+The 25-hour running mean has its first null at 0.96 cycles per day, almost on
+top of K1 and O1, passes nothing at M2, and leaks about 5 % in a side lobe near
+1.5 cycles per day, which is just above the inertial band. The 18-hour
+Butterworth passes roughly half of the diurnal and inertial energy and a sixth
+of M2, so a model scored against it is scored against noise it cannot predict.
+The 48-hour filter is clean above 0.7 cycles per day but also damps the
+two-to-five-day band where the wind-driven signal lives.
+
+**Calval truth tiers.** Raw, 18-hour and 48-hour tiers built for all three
+calval regions from the 2023 hourly archive; the rebuilt 25-hour mean matches
+the stored target exactly in every region (r = 1.0000). Scored on the rows
+finite in every tier (usegc 54,128 rows, 29 %; uswc 67,200, 58 %), R² u/v:
+
+| Truth | usegc champion | usegc per-cell linear | uswc champion | uswc per-cell linear |
+|---|---|---|---|---|
+| raw hourly | 0.20 / 0.31 | 0.36 / 0.38 | 0.28 / 0.39 | 0.27 / 0.34 |
+| 18-h low-pass | 0.44 / 0.47 | 0.65 / 0.61 | 0.41 / 0.48 | 0.36 / 0.41 |
+| 25-h mean (target) | 0.52 / 0.54 | 0.62 / 0.72 | 0.47 / 0.50 | 0.43 / 0.42 |
+| 48-h low-pass | 0.54 / 0.54 | 0.66 / 0.72 | 0.47 / 0.50 | 0.43 / 0.43 |
+
+Two things to note. The ordering of tiers is the same as on the science orbit
+(raw lowest, 18-h below the target, 48-h at or a few hundredths above it), so
+the target choice is defensible on both orbits. And on the East Coast common
+subset, which is the 29 % of rows inside the densest radar coverage, the
+per-cell linear model beats the retrained champion by 0.10 in u and 0.18 in v,
+a larger gap than the full-row table showed (there the two tied). The
+network's East Coast calval parity is therefore subset-dependent: it holds
+on the full set and fails where the radar is best. Hawaii has 127 rows common
+to every tier and is omitted from the tier figure and greyed in the grid.

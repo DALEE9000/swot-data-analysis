@@ -44,8 +44,10 @@ ranges if the lock does not resolve on your platform.
 |---|---|---|---|---|
 | SWOT L3 LR SSH Expert v3 (science cycles 1-16; calval 474-578) | AVISO+ SFTP `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` | free AVISO+ login, exported as `AVISO_USER`, `AVISO_PW` | `scripts/build_science_colocations.py` | `experiments/{region}/swot_cycles/` |
 | Pass selection | orbit shapefiles, tracked in `orbit_data/` | none | same script (`find_swaths`) | |
-| HF radar hourly surface currents | HFRNet THREDDS (Scripps CORDC), see 2.3 | none | `scripts/aggregate_hfr.py`, `scripts/build_hfr_multires.py`, colocation script | `experiments/{region}/hfr_target/` |
-| ERA5 10-m winds | NCAR mirror `s3://nsf-ncar-era5` (anonymous) | none | `scripts/build_era5_winds.py` | `experiments/{region}/era5/` |
+| HF radar hourly surface currents | NOAA NCEI HF radar RTV archive (HFRNet THREDDS at Scripps retired 2026), see 2.3 | none | `scripts/aggregate_hfr.py`, `scripts/build_hfr_multires.py`, colocation script | `experiments/{region}/hfr_target/` |
+| HF radar, European node (10 networks, 6 regions `eu_*`) | `thredds.hfrnode.eu` NCSS, totals v3 (v2.2 fallback) | none | `scripts/fetch_hfr_eu.py` | `HFR_DATA_ROOT/eu_<net>_hourly/` |
+| HF radar, IMOS ACORN (8 sites, regions `au_*`) | `thredds.aodn.org.au` fileServer, `gridded_1h-avg-current-map_QC` | none | `scripts/fetch_hfr_imos.py` | `HFR_DATA_ROOT/imos_<site>_hourly/` |
+| ERA5 10-m winds | NCAR mirror `s3://nsf-ncar-era5` (anonymous; lags ~2 months) | none | `scripts/build_era5_winds.py` (append mode with `--months`) | `experiments/{region}/era5/`, science Jul 2023 to Aug 2026 for all 19 regions |
 | GOES-16/18 SST (calval runs only) | `s3://noaa-goes16`, `s3://noaa-goes18` (anonymous) | none | `scripts/build_goes_sst.py` | `experiments/{region}/goes/` |
 | DUACS L4 daily geostrophy (baseline only) | Copernicus Marine `SEALEVEL_GLO_PHY_L4_MY_008_047` | free, via `copernicusmarine login` | `scripts/duacs_pull.py` | `experiments/{region}/duacs/` |
 
@@ -194,4 +196,10 @@ future searches (research log, that date).
 | This document | done 2026-10-31 | update when protocols, runs or data change |
 | Calval tables for `usegc`, `ushi` | done 2026-11-01 | `baselines_eval.py --run evolve_uswc_v1 --regions uswc,usegc,ushi --buffer-days 7`; figures in `docs/figures/calval/` |
 | Rerun search under the buffered fitness | not started | Phase 2 of `docs/research-plan.md` |
-| Rotary-spectrum figure on real radar data | script + self-test done; render pending Z: | `scripts/hfr_rotary_spectrum.py` |
+| Rotary-spectrum figure on real radar data | done 2026-11-02 | `scripts/hfr_rotary_spectrum.py --regions usegc,uswc --start 2024-03-01 --end 2024-06-30` (needs Z: or `HFR_DATA_ROOT`) |
+| New radar networks: Europe (6 regions) and Australia (7 regions), science orbit | SWOT, radar, DUACS downloaded and Europe colocated 2026-11-05; ERA5 built 2026-11-09/10 (Jul 2023 to Aug 2026, all 19 regions) | `fetch_hfr_eu.py`, `fetch_hfr_imos.py`, then `build_science_colocations.py --regions eu_*,au_* --phase download`; 82 passes, ~1,300 granules; HFR-target and pkl phases still need a loader for the non-HFRNet file layout |
+| Daily-mean animations of every radar region (19 regions, full archives) | done 2026-11-05 | `scripts/animate_hfr_regions.py`; MP4s gitignored, regenerate from the hourly archives on Z: |
+| Full radar records for Europe (2019-present) and Australia (2009-present), US HFRNet gaps and 2025-2026 tail | done 2026-11-08 (EU node, IMOS, NCEI for the US; the Scripps HFRNet server is retired) | README "Full radar records" block: `fetch_hfr_eu.py`, `fetch_hfr_imos.py`, `hfr_convert_networks.py --start 2009-01 --end 2026-10`, `fetch_hfrnet.py --go` |
+| SWOT science cycles 017-058 (forward stream from 033) for all 19 regions | done 2026-11-08 (segments on Z: via the `experiments/<rid>/swot_cycles` junctions; appended to all 19 pkls) | `build_science_colocations.py --phase download --cycles ... --manifest-tag ...`, then `--phase pkl --cycles 001-058` (append mode, existing cycles kept) |
+| HFR and SWOT side-by-side animations, per region and per continent | done 2026-11-10: 22 full-record movies plus 22 `_since2023` cuts on Z: (`docs/figures/hfr_animations` junction) | `scripts/animate_hfr_swot.py` (README block); daily cache and frames on Z: under `archive/hfr_anim/` |
+| Calval truth tiers (raw, 18-h, 48-h) for `uswc`, `usegc`, `ushi` | done 2026-11-02 | `hfr_tiers.py --run evolve_uswc_v1 --regions ushi,uswc,usegc`, then the calval `baselines_eval.py` line above |

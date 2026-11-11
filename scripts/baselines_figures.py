@@ -171,18 +171,22 @@ def fig_rmse_pct(res, protocol=None):
 def fig_tiers(res, protocol=None):
     protocol = protocol or MIS["protocol"]
     """Champion and linear baseline skill vs the timescale of the HFR truth."""
-    models = [("champion_pooled", "AlphaEvolve MLP, pooled (72 stencil cols, nonlinear)", "-", "o"),
+    models = [("champion_pooled", CHAMP_LABEL[mission]["champion_pooled"].replace("\n", ", "), "-", "o"),
               ("geos_cal+wind_lsq", "SWOT + wind, linear ($1, g_u, g_v, W_u, W_v$)", "--", "s")]
-    fig, axes = plt.subplots(1, len(REGIONS), figsize=(2.5 + 2.8 * len(REGIONS), 3.6), sharey=True, squeeze=False)
+    # regions where the common subset (rows finite in every tier) is big enough to score
+    regs = [r for r in REGIONS if res["regions"][r].get("tiers", {}).get("target_25h", {}).get(protocol, {})
+            .get("train_mean", {}).get("u", {}).get("n", 0) >= 1000]
+    dropped = [r for r in REGIONS if r not in regs]
+    fig, axes = plt.subplots(1, len(regs), figsize=(2.5 + 2.8 * len(regs), 3.6), sharey=True, squeeze=False)
     axes = axes[0]
     x = np.arange(len(TIER_ORDER))
-    for ax, rid in zip(axes, REGIONS):
+    for ax, rid in zip(axes, regs):
         tiers = res["regions"][rid].get("tiers", {})
         for comp, color in (("u", C_U), ("v", C_V)):
             for key, lab, ls, mk in models:
                 vals = [tiers.get(t, {}).get(protocol, {}).get(key, {}).get(comp, {}).get("r2", np.nan) for t, _ in TIER_ORDER]
                 ax.plot(x, vals, ls=ls, marker=mk, ms=5.5, lw=1.8, color=color, mec="white", mew=1.0,
-                        label=f"${comp}$, {lab}" if rid == REGIONS[0] else None, zorder=3)
+                        label=f"${comp}$, {lab}" if rid == regs[0] else None, zorder=3)
         n = tiers.get("target_25h", {}).get(protocol, {}).get("train_mean", {}).get("u", {}).get("n", 0)
         frac = res["regions"][rid].get("tiers_common_frac", 0)
         ax.set_title(f"{REGION_NAME[rid]}\n{n:,} common rows ({frac:.0%})", fontsize=9.5)
@@ -196,9 +200,11 @@ def fig_tiers(res, protocol=None):
     h, l = axes[0].get_legend_handles_labels()
     fig.legend(h, l, loc="lower center", ncol=2, handlelength=2.2, bbox_to_anchor=(0.5, -0.06), columnspacing=2.0)
     fig.text(0.5, -0.2, "Same predictions scored against four versions of the radar truth, on rows where every tier is defined. "
-             "Both models predict HFR $u$, $v$ at the pass point and time from predictors fitted on training cycles 1-12.\n"
+             f"Both models predict HFR $u$, $v$ at the pass point and time from predictors fitted on {MIS['train']}.\n"
              "Low-pass tiers: order-2 zero-phase Butterworth on the hourly record.\n"
-             + CHAMP_NOTE, ha="center", fontsize=8, color=MUTED)
+             + CHAMP_NOTE
+             + "".join(f"\n{REGION_NAME[r]} omitted: under 1,000 rows common to every tier." for r in dropped),
+             ha="center", fontsize=8, color=MUTED)
     fig.tight_layout(w_pad=1.0)
     save(fig, "truth_tiers")
 
@@ -316,6 +322,8 @@ def fig_benchmark_grid(res, comp="u"):
             block = R["protocols"].get(pk) if tier == "MAIN" else R.get("tiers", {}).get(tier, {}).get(pk)
             if not block:
                 continue
+            if tier != "MAIN" and block.get("train_mean", {}).get("u", {}).get("n", 0) < 1000:
+                continue        # tier subset too small to score (ushi calval: 127 common rows)
             for i, (mk, _) in enumerate(GRID_MODELS):
                 if mk in block:
                     M[i, j] = block[mk][comp]["r2"]
@@ -356,7 +364,7 @@ def fig_benchmark_grid(res, comp="u"):
     fig.text(0.5, 0.005,
              f"Columns: truth tier (header) x row protocol (test cycles: all or buffered by {MIS['buffer'].split(' (')[0]} / rows: all or "
              "centre-cell SWOT geostrophy finite). Black box: the paper headline protocol. "
-             "Grey: not scored (no SWOT rows, DUACS not finite, or no hourly HFR for tiers). "
+             "Grey: not scored (no SWOT rows, DUACS not finite, no hourly HFR for tiers, or under 1,000 rows common to every tier). "
              "Rows: model label, then its predictors (g SWOT L3 geostrophy, d DUACS L4, W ERA5 wind; target always HFR u, v). "
              "Each cell also carries a bootstrap CI, RMSE, r, amplitude ratio and N_eff in results.json.",
              ha="center", fontsize=7.5, color=MUTED, wrap=True)
