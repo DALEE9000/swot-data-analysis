@@ -87,6 +87,53 @@ bootstrap intervals. This table is the spine of the paper.
 
 ---
 
+## Phase 1b — Out-of-time and out-of-region evaluation (2026-11-11 to 2026-11-18)
+
+Added 2026-11-11, after the data campaign of Nov 7-10 extended every region
+to SWOT science cycles 001-058 (Jul 2023 to Oct 2026) and added six European
+and seven Australian radar regions with ERA5 winds and DUACS for the whole
+window. The Phase 1 tables hold out cycles 13-16 with a 30-day buffer because
+one year was all there was; now 42 cycles exist that no decision ever saw.
+
+Protocol: the champion is a training recipe, not weights, so it is retrained
+on year one (cycles 001-016, everything the evolutionary search was allowed
+to see) and scored once on 017-058. The search is NOT rerun: its inner split
+(train 001-012, fitness 013-016) already used year one the only way it can be
+used, and rerunning it would roll the dice on a different recipe without
+making the holdout any cleaner. Seven training sets of the same recipe give
+the spatial axis for free, since the model takes 72 stencil columns and no
+coordinates: US, Europe, Australia, all nineteen, and leave-one-continent-out
+(not-US, not-Europe, not-Australia). Baselines (calibrated geostrophy with
+and without a fitted wind response, DUACS likewise, cell climatology, train
+mean) are fitted on each region's year-one rows. Rows after the ERA5 record
+(2026-08-31) are excluded rather than scored with a stale wind.
+
+- [x] Freeze every region's rows for all cycles (2026-11-11; usegc and uswc
+      need `--chunk 10`, the whole record does not fit in commit memory).
+- [x] Seven retrains, one seed each (2026-11-11, 2.7 h of GPU in total).
+- [ ] Seeds 43, 44 for us_y1, not_us_y1, all_y1.
+- [x] Score; `experiments/holdout/results.md` (2026-11-11).
+- [x] Figures: `docs/figures/holdout/` (2026-11-11).
+- [x] Second search not justified: no drift to fix (research log 2026-11-11 22:10).
+- [x] `docs/replication.md` updated (2026-11-11); paper methods notes pending.
+- [ ] Leave-one-region-out within a continent (train on five US regions, score the sixth).
+- [ ] Latitude-aware inputs (sin(latitude), or velocities and winds scaled by f, or
+      per-region standardisation) and a rerun of not_us_y1.
+
+Result (2026-11-11): the recipe transfers in time (own-continent champion beats
+calibrated geostrophy in 13 of 16 scored regions over two further years, level
+with DUACS plus wind in the US and Europe, drift of a few points at most) and
+fails in the leave-one-continent-out sense (negative R² in the US and most of
+Australia); training on all 19 regions recovers the in-region skill at no cost
+in the US and Europe. Details and the table: research log 2026-11-11 22:10.
+
+Checkpoint (2026-11-18): the transfer grid with intervals and the drift
+figure. If skill holds across years and continents the paper's claim becomes
+"a recipe found on one year of one coastline transfers"; if it does not, the
+failure pattern by latitude and tidal regime is the finding.
+
+---
+
 ## Phase 2 — The wind-history experiment (2026-11-18 to 2026-12-16)
 
 Goal: one experiment that yields a mechanism, not only a skill number.

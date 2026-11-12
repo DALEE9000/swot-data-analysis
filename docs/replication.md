@@ -40,6 +40,8 @@ ranges if the lock does not resolve on your platform.
 
 ### 2.2 Inputs and where they come from
 
+BibTeX entries for every input below are in `docs/data-sources.bib` (one entry per dataset or service, plus the reference paper where one exists; two DOIs are marked "verify").
+
 | Input | Source | Account | Script | Lands in |
 |---|---|---|---|---|
 | SWOT L3 LR SSH Expert v3 (science cycles 1-16; calval 474-578) | AVISO+ SFTP `swot_products/l3_karin_nadir/l3_lr_ssh/v3_0/Expert/reproc` | free AVISO+ login, exported as `AVISO_USER`, `AVISO_PW` | `scripts/build_science_colocations.py` | `experiments/{region}/swot_cycles/` |
@@ -186,6 +188,27 @@ lineage can be followed even though the search cannot be replayed. Note that
 buffered per-region protocol was adopted on 2026-10-29 for evaluation and for
 future searches (research log, that date).
 
+## Where the data lives (C: against Z:)
+
+C: is small and fills up; the WD Elements drive Z: is the archive, mounted at
+`Z:\data_repository\columbia_oceanography\SWOT-data-analysis\`. Folders moved
+there keep their repository path through a junction (`mklink /J`), so every
+command in this guide runs unchanged as long as Z: is mounted (after an eject
+the drive stays Offline until an elevated `Set-Disk` brings it back; the
+junctions dangle until then).
+
+| Repository path | Lives on | Contents |
+|---|---|---|
+| `experiments/<rid>/swot_cycles/` | Z: (junction) | SWOT L3 segments per region, cycles 001-058 |
+| `experiments/<rid>/flattened/` | Z: (junction, 2026-11-11) | flatten caches (stencil feature frames), regenerable |
+| `experiments/holdout/` | Z: (junction, 2026-11-11) | frozen rows per region, retrain inputs and predictions, results |
+| `docs/figures/hfr_animations/` | Z: (junction) | movies |
+| `HFR_DATA_ROOT` | Z: | raw hourly radar archives (NCEI, EU node, IMOS) |
+| `HFR_ANIM_ROOT` | Z: | daily-mean caches and frames for the animations |
+| `experiments/<rid>/{hfr_target,era5,duacs,goes}/` | C: | colocation targets and forcing pkls (the `_6km` twins are hard links) |
+| `cache/` | C: (next to move) | interp_sources and other step pickles, regenerable |
+| `experiments/<rid>/{ann,rf}/`, `experiments/evolve/` | C: | model weights, search records |
+
 ## Replication task list (keep current)
 
 | Task | Status | Note |
@@ -197,7 +220,8 @@ future searches (research log, that date).
 | Calval tables for `usegc`, `ushi` | done 2026-11-01 | `baselines_eval.py --run evolve_uswc_v1 --regions uswc,usegc,ushi --buffer-days 7`; figures in `docs/figures/calval/` |
 | Rerun search under the buffered fitness | not started | Phase 2 of `docs/research-plan.md` |
 | Rotary-spectrum figure on real radar data | done 2026-11-02 | `scripts/hfr_rotary_spectrum.py --regions usegc,uswc --start 2024-03-01 --end 2024-06-30` (needs Z: or `HFR_DATA_ROOT`) |
-| New radar networks: Europe (6 regions) and Australia (7 regions), science orbit | SWOT, radar, DUACS downloaded and Europe colocated 2026-11-05; ERA5 built 2026-11-09/10 (Jul 2023 to Aug 2026, all 19 regions) | `fetch_hfr_eu.py`, `fetch_hfr_imos.py`, then `build_science_colocations.py --regions eu_*,au_* --phase download`; 82 passes, ~1,300 granules; HFR-target and pkl phases still need a loader for the non-HFRNet file layout |
+| New radar networks: Europe (6 regions) and Australia (7 regions), science orbit | done 2026-11-11: SWOT, radar, DUACS, ERA5 (Jul 2023 to Aug 2026) and 25-h radar targets for cycles 001-058 in all 19 regions | `fetch_hfr_eu.py`, `fetch_hfr_imos.py`, `build_science_colocations.py --phase download/pkl`, `build_hfr_multires.py` (append mode; README block) |
+| Out-of-time and out-of-region evaluation on cycles 017-058 (Phase 1b) | done 2026-11-11, one seed; results `experiments/holdout/results.{md,json}` (on Z: via junction), figures `docs/figures/holdout/` | `holdout_eval.py --freeze all` (`--chunk 10` for usegc, uswc), `--train all`, `--score --figures`; about 3.5 h of freezes and 2.7 h of GPU; seeds 43/44 and leave-one-region-out pending |
 | Daily-mean animations of every radar region (19 regions, full archives) | done 2026-11-05 | `scripts/animate_hfr_regions.py`; MP4s gitignored, regenerate from the hourly archives on Z: |
 | Full radar records for Europe (2019-present) and Australia (2009-present), US HFRNet gaps and 2025-2026 tail | done 2026-11-08 (EU node, IMOS, NCEI for the US; the Scripps HFRNet server is retired) | README "Full radar records" block: `fetch_hfr_eu.py`, `fetch_hfr_imos.py`, `hfr_convert_networks.py --start 2009-01 --end 2026-10`, `fetch_hfrnet.py --go` |
 | SWOT science cycles 017-058 (forward stream from 033) for all 19 regions | done 2026-11-08 (segments on Z: via the `experiments/<rid>/swot_cycles` junctions; appended to all 19 pkls) | `build_science_colocations.py --phase download --cycles ... --manifest-tag ...`, then `--phase pkl --cycles 001-058` (append mode, existing cycles kept) |

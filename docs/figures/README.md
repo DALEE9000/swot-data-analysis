@@ -60,6 +60,17 @@ Scripts: `scripts/poster_figures.py --run evolve_all_science_v1`,
 | `champion_architecture_simple` | Same, reduced to layers and widths for a slide | talk version |
 | `champion_importance` (+ `.json`) | Grouped permutation importance of the champion's input groups on the temporal holdout | which inputs the network leans on |
 
+## holdout/ — out-of-time and out-of-region evaluation (cycles 017-058)
+
+Built by `scripts/holdout_eval.py --figures` from `experiments/holdout/results.json`. Every model is trained or fitted on cycles 001-016 (Jul 2023 to Jun 2024) and scored on cycles 017-058 (Jul 2024 to Aug 2026, the end of the ERA5 record), rows with clean pairing, finite SWOT geostrophy and ERA5 inside its record. glna, gak and eu_gbight have no clean test rows and are absent. In the grid, `< -1` marks a blown-up fit and `n/a` a baseline skipped for too few rows (au_cof's year-one geostrophy calibration is broken, read its R² columns only).
+
+| figure | what it shows | role |
+|---|---|---|
+| `skill_through_time` | One panel per region: percent RMSE change against calibrated SWOT geostrophy, per cycle, for the champion trained on the region's own continent, on all regions and on the other continents, beside DUACS and the cell climatology; training year shaded | drift of the calibration over two more years |
+| `skill_through_time_quarterly` | The same quantity pooled by quarter with a 95% bootstrap interval over passes (single cycles as faint dots), plus a row-weighted linear trend per model with its slope in percent per year and interval printed in the panel | the drift statistic: a slope indistinguishable from zero is "no erosion" as a number |
+| `transfer_grid` | Heat map of R² (mean of u, v): test regions by continent against the seven training sets and three baselines; outlined cells are in-continent | the generalization table |
+| `transfer_map` | World map, one marker per radar region, coloured by R² of the champion trained on the other continents (top) and on the region's own continent (bottom) | the one-glance version |
+
 ## hfr_animations/ — daily-mean surface currents, every radar region
 
 Script: `scripts/animate_hfr_regions.py` (needs the hourly archives under

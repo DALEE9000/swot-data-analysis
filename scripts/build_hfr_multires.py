@@ -185,7 +185,7 @@ def slab_mean(files_idx, t0: np.datetime64):
                     grid = shape
                 elif shape != grid:
                     continue  # cross-era grid change; keep the window's era
-                loaded = sub.load()
+                loaded = sub.load().reset_coords(drop=True)  # some NCEI files carry extra coords (time_run) that break concat
                 das_u.append(loaded["u"].astype("float32"))
                 das_v.append(loaded["v"].astype("float32"))
         except OSError:

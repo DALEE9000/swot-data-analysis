@@ -495,6 +495,7 @@ The supervised-learning targets: HFR `u`/`v` interpolated onto each pass's SWOT 
 |--------|---------|
 | `build_science_colocations.py` | end-to-end per region: AVISO granule download → SWOT pkl → HFR target → upload → granule sync (5 phases, resume-safe via manifest + per-cycle checkpoints) |
 | `aggregate_hfr.py` | raw hourly HFRNet files → single full-period archives (multi-grid-era aware, memory-bounded streaming, crash-resumable) |
+| `holdout_eval.py` | out-of-time and out-of-region evaluation on cycles 017-058: freezes every region's rows, retrains the champion recipe on year one per region set (seven variants), scores against the year-one baselines with block bootstrap, draws `docs/figures/holdout/` |
 | `build_hfr_multires.py` | per-resolution colocation targets built from the local raw hourly archives |
 | `fetch_hfr_eu.py` | European HFR node hourly totals, one NetCDF per network per month via THREDDS NCSS (free, resumable) → `HFR_DATA_ROOT/eu_<net>_hourly/` |
 | `fetch_hfr_imos.py` | IMOS ACORN (Australia) hourly gridded maps, per-hour files via THREDDS fileServer (free, resumable, 8 threads) → `HFR_DATA_ROOT/imos_<site>_hourly/` |
@@ -543,6 +544,16 @@ python scripts/build_science_colocations.py --regions $R --phase download --cycl
 python scripts/build_science_colocations.py --regions $R --phase pkl --cycles 001-058    # appends the new cycles to each region's existing pkl
 python scripts/build_era5_winds.py --mission science --regions eu_biscay,eu_galicia,eu_wmed,eu_tirlig,eu_gbight,eu_norway,au_rot,au_turq,au_cof,au_newc,au_sag,au_nwa,au_corl   # public NCAR mirror, anonymous, $0; ~2 min/month
 python scripts/build_era5_winds.py --mission science --months 2024-08 2026-10 --regions $R   # append mode: only months missing from each pkl are fetched (mirror lags ~2 months; rerun to extend)
+HFR_DATA_ROOT='Z:\data_repository\columbia_oceanography\HFR\Code\Data' python scripts/build_hfr_multires.py --targets uswc_6km,usegc_6km,gak_2km,glna_6km,prvi_6km,ushi_6km,eu_biscay_5km,eu_galicia_6km,eu_wmed_3km,eu_tirlig_2km,eu_gbight_2km,eu_norway_5km,au_rot_4km,au_turq_6km,au_cof_1km,au_newc_6km,au_sag_4km,au_nwa_7km,au_corl_6km   # append the new cycles' 25-h radar targets (local archives, no S3)
+python scripts/duacs_pull.py --regions $R --start 2024-07-01T00:00:00 --end 2026-10-31T23:59:59   # DUACS baseline for the new window (Copernicus, free)
+```
+
+Out-of-time and out-of-region evaluation on the new cycles (train on cycles 001-016, score on 017-058; see `docs/research-plan.md` Phase 1b):
+```bash
+python scripts/holdout_eval.py --freeze all          # experiments/holdout/<rid>.npz, one subprocess per region
+python scripts/holdout_eval.py --freeze usegc --chunk 10   # big regions: flatten 10 cycles at a time (usegc whole blows the 72 GB commit limit)
+python scripts/holdout_eval.py --train all           # seven retrains of the champion recipe on the GPU, ~30-55 min each
+python scripts/holdout_eval.py --score --figures     # experiments/holdout/results.{json,md}, docs/figures/holdout/
 ```
 Logs: `SWOT_L3/science/fetch_hfr_eu_full_{A,B,C}.log`, `fetch_hfr_imos_full.log`, `fetch_hfrnet_{A,B}.log`, `download_ext_{1..8}.log`. About 65 s per granule per SFTP worker (11 MB granules; AVISO is slow, not the disk), 184 passes per cycle over the 19 regions, so 42 cycles take about a day and a half with four workers.
 

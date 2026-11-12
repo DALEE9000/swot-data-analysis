@@ -1,0 +1,154 @@
+% Data sources used by SWOTxAI, in BibTeX.
+% One entry per dataset or service actually read by the pipeline, plus the
+% reference paper for each where one exists. Access dates are the days the
+% local mirrors were built (docs/replication.md, section 2). Entries marked
+% "verify" carry a DOI taken from the provider's catalogue that was not
+% re-checked against a landing page; check before submission.
+%
+% Cite with \usepackage[style=authoryear]{biblatex} and @dataset, or with
+% plain BibTeX, where @dataset falls back to @misc in most styles.
+
+% ---------------------------------------------------------------- SWOT
+
+@dataset{aviso_swot_l3_lr_ssh_expert_v3,
+  author       = {{AVISO/DUACS}},
+  title        = {{SWOT} Level-3 {KaRIn} Low Rate {SSH} Expert (v3.0)},
+  year         = {2023},
+  publisher    = {CNES},
+  doi          = {10.24400/527896/A01-2023.018},
+  url          = {https://www.aviso.altimetry.fr/en/data/products/sea-surface-height-products/global/swot-l3-ocean-products.html},
+  urldate      = {2026-11-08},
+  note         = {Version 3.0, reprocessed (cycles 001--032) and forward (033 onward) streams, 2 km grid; variables ssha\_filtered, ugos/vgos\_filtered, ugosa/vgosa\_filtered, mdt. Science orbit cycles 001--058 (Jul 2023 to Oct 2026) and 1-day calval orbit cycles 474--578. Distributed by AVISO+ under the standard AVISO+ licence, SFTP folder l3\_karin\_nadir/l3\_lr\_ssh/v3\_0/Expert}
+}
+
+@article{fu2024swot,
+  author  = {Fu, Lee-Lueng and Pavelsky, Tamlin and Cretaux, Jean-Francois and Morrow, Rosemary and Farrar, J. Thomas and Vaze, Parag and Sengenes, Pierre and Vinogradova-Shiffer, Nadya and Sylvestre-Baron, Annick and Picot, Nicolas and Dibarboure, Gerald},
+  title   = {The {Surface Water and Ocean Topography} Mission: A Breakthrough in Radar Remote Sensing of the Ocean and Land Surface Water},
+  journal = {Geophysical Research Letters},
+  year    = {2024},
+  volume  = {51},
+  number  = {4},
+  pages   = {e2023GL107652},
+  doi     = {10.1029/2023GL107652}
+}
+
+@misc{aviso_swot_orbit_shapefiles,
+  author       = {{AVISO+}},
+  title        = {{SWOT} orbit and swath shapefiles (science and 1-day calibration orbits)},
+  year         = {2023},
+  howpublished = {AVISO+ SWOT orbit page, files sph\_science\_swath.zip and sph\_calval\_swath.zip},
+  url          = {https://www.aviso.altimetry.fr/en/missions/current-missions/swot/orbit.html},
+  urldate      = {2025-07-01},
+  note         = {Used for pass selection per region (orbit\_data/ in the repository)}
+}
+
+% ---------------------------------------------------------------- HF radar, United States
+
+@misc{ncei_hfradar_rtv,
+  author       = {{NOAA National Centers for Environmental Information} and {U.S. IOOS HF Radar Network}},
+  title        = {Near-real-time surface ocean velocity (total vector velocities) from the {U.S.} {IOOS} {HF} Radar National Network, hourly {netCDF} archive},
+  year         = {2006--2026},
+  howpublished = {NCEI HTTPS archive, path data/oceans/ioos/hfradar/rtv/YYYY/YYYYMM/REGION/, Scripps (SIO) and NDBC producers},
+  url          = {https://www.ncei.noaa.gov/data/oceans/ioos/hfradar/rtv/},
+  urldate      = {2026-11-08},
+  note         = {Regions USWC, USEGC, GAK, GLNA, PRVI, USHI at 2 and 6 km. Data assembled by NDBC (NESDIS after June 2025) and SIO and submitted monthly to NCEI; the Scripps HFRNet THREDDS server used for the 2025 pulls was retired in 2026. The archive is split across many NCEI accessions and carries no single collection DOI; accession 0220080 (DOI 10.25921/0mgt-5372) holds the radial velocities, not the totals used here}
+}
+
+% ---------------------------------------------------------------- HF radar, Europe
+
+@misc{euhfrnode_totals,
+  author       = {{European HFR Node (EuroGOOS)}},
+  title        = {Near-real-time and reprocessed surface ocean total velocity from European {HF} radar networks},
+  year         = {2019--2026},
+  howpublished = {European HFR Node THREDDS server, NCSS access, totals v3 (v2.2 fallback)},
+  url          = {https://thredds.hfrnode.eu},
+  urldate      = {2026-11-08},
+  note         = {Networks used: Galicia, EUSKOOS and Basque, Gulf of Biscay, Ibiza and Balearic, PLOCAN, Tirreno-Ligurian (TirLig), NAdr, COSYNA German Bight (to 2023-06), Norway. Data collected and made freely available by the operating institutions through the EuroGOOS European HFR Node, CC BY 4.0; each network's record on the EMODnet Physics ERDDAP names the originators to credit. Quality control follows \cite{corgnati2018hfrqc}}
+}
+
+@techreport{corgnati2018hfrqc,
+  author      = {Corgnati, Lorenzo and Mantovani, Carlo and Griffa, Annalisa and Berta, Maristella and Penna, Pierluigi and Celentano, Paolo and Bellomo, Lucio and Carlson, Daniel F. and D'Adamo, Raffaele},
+  title       = {Recommendation Report 2 on improved common procedures for {HFR} {QC} analysis},
+  institution = {JERICO-NEXT},
+  year        = {2018},
+  doi         = {10.25607/OBP-944},
+  note        = {Deliverable D5.14}
+}
+
+% ---------------------------------------------------------------- HF radar, Australia
+
+@misc{imos_acorn_gridded,
+  author       = {{Integrated Marine Observing System (IMOS)}},
+  title        = {{IMOS} Ocean Radar ({ACORN}) hourly averaged gridded surface current maps, quality controlled (gridded\_1h-avg-current-map\_QC)},
+  year         = {2026},
+  howpublished = {AODN THREDDS file server, path IMOS/ACORN/gridded\_1h-avg-current-map\_QC/SITE/},
+  url          = {https://thredds.aodn.org.au/thredds/catalog/IMOS/ACORN/gridded_1h-avg-current-map_QC/catalog.html},
+  urldate      = {2026-11-06},
+  note         = {Sites ROT (Rottnest), TURQ (Turquoise Coast), COF (Coffs Harbour), NEWC (Newcastle), SAG (South Australian Gulfs), NWA (North West Australia), CORL (Coral Sea), 2009 to 2026. IMOS citation form: IMOS [year of download], [title], [access URL], accessed [date]. CC BY 4.0. IMOS is enabled by the National Collaborative Research Infrastructure Strategy (NCRIS)}
+}
+
+% ---------------------------------------------------------------- ERA5 winds
+
+@dataset{hersbach2023era5_single_levels,
+  author    = {Hersbach, Hans and Bell, Bill and Berrisford, Paul and Biavati, Gionata and Hor{\'a}nyi, Andr{\'a}s and Mu{\~n}oz Sabater, Joaqu{\'i}n and Nicolas, Julien and Peubey, Carole and Radu, Raluca and Rozum, Iryna and Schepers, Dinand and Simmons, Adrian and Soci, Cornel and Dee, Dick and Th{\'e}paut, Jean-No{\"e}l},
+  title     = {{ERA5} hourly data on single levels from 1940 to present},
+  year      = {2023},
+  publisher = {Copernicus Climate Change Service (C3S) Climate Data Store (CDS)},
+  doi       = {10.24381/cds.adbb2d47},
+  note      = {Variables 10-m u and v wind (VAR\_10U, VAR\_10V), hourly, Jul 2023 to Aug 2026, subset to each radar region}
+}
+
+@article{hersbach2020era5,
+  author  = {Hersbach, Hans and Bell, Bill and Berrisford, Paul and Hirahara, Shoji and Hor{\'a}nyi, Andr{\'a}s and Mu{\~n}oz-Sabater, Joaqu{\'i}n and Nicolas, Julien and Peubey, Carole and Radu, Raluca and Schepers, Dinand and Simmons, Adrian and Soci, Cornel and Abdalla, Saleh and Abellan, Xavier and Balsamo, Gianpaolo and Bechtold, Peter and Biavati, Gionata and Bidlot, Jean and Bonavita, Massimo and De Chiara, Giovanna and Dahlgren, Per and Dee, Dick and Diamantakis, Michail and Dragani, Rossana and Flemming, Johannes and Forbes, Richard and Fuentes, Manuel and Geer, Alan and Haimberger, Leo and Healy, Sean and Hogan, Robin J. and H{\'o}lm, El{\'i}as and Janiskov{\'a}, Marta and Keeley, Sarah and Laloyaux, Patrick and Lopez, Philippe and Lupu, Cristina and Radnoti, Gabor and de Rosnay, Patricia and Rozum, Iryna and Vamborg, Freja and Villaume, Sebastien and Th{\'e}paut, Jean-No{\"e}l},
+  title   = {The {ERA5} global reanalysis},
+  journal = {Quarterly Journal of the Royal Meteorological Society},
+  year    = {2020},
+  volume  = {146},
+  number  = {730},
+  pages   = {1999--2049},
+  doi     = {10.1002/qj.3803}
+}
+
+@misc{ncar_era5_aws,
+  author       = {{NSF National Center for Atmospheric Research, Research Data Archive}},
+  title        = {{ERA5} Reanalysis (0.25 Degree Latitude-Longitude Grid), dataset ds633.0, mirrored on the {AWS} Open Data Registry as nsf-ncar-era5},
+  year         = {2019},
+  howpublished = {Amazon S3 bucket s3://nsf-ncar-era5, prefix e5.oper.an.sfc/YYYYMM/, anonymous access},
+  doi          = {10.5065/BH6N-5N20},
+  url          = {https://registry.opendata.aws/nsf-ncar-era5/},
+  urldate      = {2026-11-10},
+  note         = {The copy actually read by scripts/build\_era5\_winds.py (one gzip HDF5 file per variable and month; the mirror lags the CDS by about two months). DOI is the RDA ds633.0 identifier: verify}
+}
+
+% ---------------------------------------------------------------- DUACS gridded altimetry (baseline)
+
+@dataset{cmems_duacs_l4_my,
+  author    = {{E.U. Copernicus Marine Service Information (CMEMS)}},
+  title     = {Global Ocean Gridded {L4} Sea Surface Heights and Derived Variables Reprocessed (1993--ongoing), {SEALEVEL\_GLO\_PHY\_L4\_MY\_008\_047}},
+  year      = {2024},
+  publisher = {Marine Data Store (MDS)},
+  doi       = {10.48670/moi-00148},
+  note      = {Daily 0.25 degree geostrophic velocity (ugos, vgos) produced by CLS/DUACS; the delayed-time stream, used for Jul 2023 to the end of its record. Pulled with the copernicusmarine toolbox (scripts/duacs\_pull.py). Version 2.1, 2024-11-26}
+}
+
+@dataset{cmems_duacs_l4_nrt,
+  author    = {{E.U. Copernicus Marine Service Information (CMEMS)}},
+  title     = {Global Ocean Gridded {L4} Sea Surface Heights and Derived Variables Near Real Time, {SEALEVEL\_GLO\_PHY\_L4\_NRT\_008\_046}},
+  year      = {2024},
+  publisher = {Marine Data Store (MDS)},
+  doi       = {10.48670/moi-00149},
+  note      = {Near-real-time stream used to fill the tail (2024-07 to 2026-10) where the reprocessed product ends; the per-day source is recorded in each duacs\_l4\_<region>\_20240701\_20261031.nc. DOI from the product catalogue: verify}
+}
+
+% ---------------------------------------------------------------- GOES SST (calval runs only)
+
+@dataset{noaa_goes_abi_l2_sst,
+  author    = {{NOAA National Environmental Satellite, Data, and Information Service (NESDIS)}},
+  title     = {{NOAA} {GOES-R} Series Advanced Baseline Imager ({ABI}) Level 2 Sea Surface Temperature ({SST}) (Skin)},
+  year      = {2017},
+  publisher = {NOAA National Centers for Environmental Information},
+  doi       = {10.7289/V5WD3XVT},
+  url       = {https://registry.opendata.aws/noaa-goes/},
+  urldate   = {2025-07-20},
+  note      = {GOES-16 and GOES-18 ABI-L2-SSTF, 2 km fixed grid, read from the NOAA Open Data Dissemination buckets noaa-goes16 and noaa-goes18 (anonymous). Used only as the optional SST feature in the 1-day calval runs}
+}
