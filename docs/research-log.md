@@ -7,6 +7,43 @@ Convention: newest entry first; one `##` section per date; record *why* alongsid
 
 ---
 
+## 2026-11-12 — Finishing Phase 1b: seed spread and leave-one-region-out
+
+### 11:15 David: "i need a really simple explanation of this written somewhere"
+
+David asked why the bars in `loro_us` do not sit at the mean of the seed dots. The bar scores the seed-averaged prediction (an ensemble), the dots score each seed alone; averaging predictions cancels the seeds' independent errors, so the ensemble beats a typical single seed wherever the seeds disagree. A plain-language section was added at the end of `docs/glossary.md` covering seeds, ensembles against single-seed scores (with a toy example), how to read R² and %ΔRMSE, y1, LORO and cell climatology, plus LORO and y1 as glossary entries. The figure title now says the same in one line.
+
+### 11:05 David: "are there figures that demonstrate these results"
+
+The grid averages u and v, which hides the shape of the failure, so `docs/figures/holdout/loro_us` was added (`fig_loro` in `holdout_eval.py`): grouped bars of R² per component for uswc, usegc, prvi, ushi under the five training sets that matter, single-seed values as white dots. It shows in one glance that the leave-one-region-out bar drops below zero in u for three of four regions while staying near zero or positive in v, that the in-training dots sit on top of each other, and that the out-of-region dots scatter.
+
+### 05:35 Results: the recipe does not transfer between US regions either; seed noise is small
+
+Chain finished 05:31 (10 retrains, 5.2 h of GPU; `SWOT_L3/science/holdout_loro.log`). Results rescored into `experiments/holdout/results.{json,md}` and the four figures redrawn; `transfer_grid` now carries a "US w/o own region" column.
+
+**Leave-one-region-out (LORO) within the US.** Each of the four scorable US regions, predicted by the champion recipe trained on year one of the other five US regions (R² u / v, %ΔRMSE against calibrated geostrophy; own-continent model in brackets):
+
+| held out | US without it | US (own) | all 19 | not US |
+|---|---|---|---|---|
+| uswc | −0.36 / +0.01 (+23 / +9 %) | +0.29 / +0.41 | +0.28 / +0.41 | −1.50 / +0.28 |
+| usegc | −0.43 / +0.35 (+44 / +9 %) | +0.46 / +0.53 | +0.45 / +0.54 | +0.17 / +0.09 |
+| prvi | +0.12 / 0.00 (−1 / +1 %) | +0.18 / +0.07 | +0.17 / +0.06 | −0.10 / −0.50 |
+| ushi | −0.01 / +0.03 (+6 / −1 %) | +0.20 / +0.06 | +0.17 / +0.02 | −0.01 / −0.43 |
+
+So the answer to the question the experiment was built to ask is the sobering one. Holding out a single US network while keeping the hemisphere, the latitude band and the processing chain the same still destroys the skill: the held-out region is predicted worse than calibrated geostrophy in three of four cases, and the failure has the same shape as the cross-continent one, u collapsing to a negative R² while v keeps some skill. prvi is the exception, where the held-out model is about level with geostrophy, but prvi has little skill to lose. The recipe is therefore learning something specific to each network (or to each region's regime, which within the US is confounded with the network: the California Current, the Gulf Stream shelf, Puerto Rico and Hawaii are four different oceans), not a general map from SWOT geostrophy and wind to surface current. Adding a region to the training set fixes that region (the `all` column) without hurting the others, so the practical rule for the paper is "train on every network you intend to predict", and the claim of spatial generalisation is withdrawn rather than qualified.
+
+**Seed spread.** Three seeds (42, 43, 44) for `us_y1`, `all_y1` and `not_us_y1`; single-seed R² is stored as `per_seed_r2` in `results.json` and printed in `results.md`. For the in-training models the spread is ±0.01 in R² (uswc us_y1 u: 0.282, 0.285, 0.284; usegc us_y1 v: 0.521, 0.520, 0.532), so the differences between `us_y1` and `all_y1` in the US (0.00 to 0.03) are within seed noise, as suspected. For the out-of-region model the spread is an order of magnitude larger (uswc not_us_y1 u: −1.35, −1.58, −1.71; usegc not_us_y1 v: +0.13, +0.14, −0.04), which is itself informative: a model extrapolating off its training manifold is unstable from seed to seed, while one interpolating is not. The three-seed mean prediction is now what the tables and figures show for those three variants; the headline US numbers moved by at most 0.01.
+
+**What changes in the plan.** Phase 1b is closed except for the latitude-aware inputs, which move to the start of Phase 2. The LORO result sharpens what that experiment can show: if a Coriolis-scaled input does not rescue the within-US transfer, the missing information is not a hemisphere sign but the regional regime itself, and the paper should say so.
+
+### 00:25 David: "can we finish phase 1b? ... let's do 1 and 2 for now."
+
+Two of the three open Phase 1b items launched as one unattended chain (log `SWOT_L3/science/holdout_loro.log`); the third, latitude-aware inputs, moves to the start of Phase 2 where the Coriolis parameter is a planned input anyway.
+
+**Why these two.** Every number in the 2026-11-11 table rests on one training run per training set, so a gap of a point or two between, say, `us_y1` and `all_y1` cannot yet be told from initialisation noise. Seeds 43 and 44 for `us_y1`, `all_y1` and `not_us_y1` give a three-seed mean prediction (the scorer averages every `pred_seed*.npz` in the variant folder, unchanged) and, new, a per-seed single-run R² stored as `per_seed_r2` in `results.json` and printed under each region's table in `results.md`, so the spread is on the record. The leave-one-continent-out failure confounds two things: the model never saw the physical regime, and it never saw the particular radar network. Four new training sets (`us_wo_<rid>_y1`: the five other US regions, held-out region scored) separate them. If uswc is predictable from the other five US networks, the continent failure is about regime (latitude, hemisphere, shelf), not about memorising a network; if it fails inside the US too, the recipe is learning network-specific structure. Only uswc, usegc, prvi and ushi are held out, because gak and glna have no clean test rows to score.
+
+**Changes.** `holdout_eval.py`: `LORO` dict merged into `VARIANTS`; `_variant_preds` returns the per-seed list; `score_all` records `per_seed_r2`; `write_md` prints it; `transfer_grid` gets one column "US w/o own region" (each US row shows its own held-out model) instead of four nearly empty columns. GPU estimate: four LORO retrains at about 30 min, six seed retrains (2 x 30, 2 x 35, 2 x 10 min), about 4.5 h in all, then rescore and figures. Disk: each new variant writes a 5-6 GB `data.npz` into `experiments/holdout/`, which is a junction to Z: since last night, so C: stays at 269 GB free.
+
 ## 2026-11-11 — Radar targets for cycles 017-058; the out-of-time evaluation
 
 ### 01:40 David: "do those three steps. what do i do after that?"

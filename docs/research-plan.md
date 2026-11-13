@@ -111,13 +111,13 @@ mean) are fitted on each region's year-one rows. Rows after the ERA5 record
 - [x] Freeze every region's rows for all cycles (2026-11-11; usegc and uswc
       need `--chunk 10`, the whole record does not fit in commit memory).
 - [x] Seven retrains, one seed each (2026-11-11, 2.7 h of GPU in total).
-- [ ] Seeds 43, 44 for us_y1, not_us_y1, all_y1.
+- [x] Seeds 43, 44 for us_y1, not_us_y1, all_y1 (2026-11-12; spread ±0.01 R² in-training, ±0.2 out-of-region).
 - [x] Score; `experiments/holdout/results.md` (2026-11-11).
 - [x] Figures: `docs/figures/holdout/` (2026-11-11).
 - [x] Second search not justified: no drift to fix (research log 2026-11-11 22:10).
 - [x] `docs/replication.md` updated (2026-11-11); paper methods notes pending.
-- [ ] Leave-one-region-out within a continent (train on five US regions, score the sixth).
-- [ ] Latitude-aware inputs (sin(latitude), or velocities and winds scaled by f, or
+- [x] Leave-one-region-out within a continent (2026-11-12; `us_wo_<rid>_y1` for uswc, usegc, prvi, ushi: fails like the cross-continent case, u collapses, v survives).
+- [ ] (moved to the start of Phase 2) Latitude-aware inputs (sin(latitude), or velocities and winds scaled by f, or
       per-region standardisation) and a rerun of not_us_y1.
 
 Result (2026-11-11): the recipe transfers in time (own-continent champion beats
@@ -126,6 +126,13 @@ with DUACS plus wind in the US and Europe, drift of a few points at most) and
 fails in the leave-one-continent-out sense (negative R² in the US and most of
 Australia); training on all 19 regions recovers the in-region skill at no cost
 in the US and Europe. Details and the table: research log 2026-11-11 22:10.
+
+Addendum (2026-11-12): leave-one-region-out inside the US fails the same way
+(held-out uswc R² −0.36/+0.01, usegc −0.43/+0.35 against +0.29/+0.41 and
++0.46/+0.53 in-training), so the recipe learns network- or regime-specific
+structure and the generalisation claim is withdrawn: train on every network
+you intend to predict. Seed spread is ±0.01 R² for in-training models.
+Research log 2026-11-12 05:35.
 
 Checkpoint (2026-11-18): the transfer grid with intervals and the drift
 figure. If skill holds across years and continents the paper's claim becomes

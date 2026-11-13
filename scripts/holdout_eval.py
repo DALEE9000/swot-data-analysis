@@ -72,6 +72,10 @@ VARIANTS = {
     "not_eu_y1": CONTINENTS["us"] + CONTINENTS["au"],
     "not_au_y1": CONTINENTS["us"] + CONTINENTS["eu"],
 }
+# leave-one-region-out within the US: train on the other five, score the held-out one
+# (gak and glna have no clean test rows, so holding them out teaches nothing)
+LORO = {f"us_wo_{r}_y1": [x for x in CONTINENTS["us"] if x != r] for r in ["uswc", "usegc", "prvi", "ushi"]}
+VARIANTS.update(LORO)
 FEATURES = ["mdt", "ssha_filtered", "ugos_filtered", "vgos_filtered",
             "ugosa_filtered", "vgosa_filtered", "era5_u", "era5_v"]
 K = 3
@@ -228,7 +232,7 @@ def train(variant: str, seed: int = 42) -> Path:
 # --------------------------------------------------------------------------
 
 def _variant_preds(rid: str) -> dict[str, np.ndarray]:
-    """variant -> (n_test_rows_of_region, 2) mean over seeds."""
+    """variant -> list of (n_test_rows_of_region, 2) predictions, one per seed."""
     out = {}
     for v in VARIANTS:
         vdir = OUT / v
@@ -237,7 +241,7 @@ def _variant_preds(rid: str) -> dict[str, np.ndarray]:
         s, e = json.load(open(vdir / "data_meta.json"))["test_spans"][rid]
         preds = [np.load(p)["pred"][s:e] for p in sorted(vdir.glob("pred_seed*.npz"))]
         if preds:
-            out[v] = np.mean(preds, axis=0)
+            out[v] = preds
     return out
 
 
@@ -277,16 +281,24 @@ def score_all(B: int = 1000) -> dict:
                 np.column_stack([duacs, W]))
         preds = _variant_preds(rid)
         te_idx = np.flatnonzero(te)
-        for v, p in preds.items():
-            full = np.full((len(Y), 2), np.nan, np.float32); full[te_idx] = p
+        per_seed = {}
+        for v, ps in preds.items():
+            full = np.full((len(Y), 2), np.nan, np.float32); full[te_idx] = np.mean(ps, axis=0)
             models[f"champion_{v}"] = full
+            if len(ps) > 1:   # R2 of each single seed (no bootstrap): the run-to-run spread
+                sst = np.nansum((Y[ok] - np.nanmean(Y[ok], 0)) ** 2, 0)
+                r2s = []
+                for p1 in ps:
+                    f1 = np.full((len(Y), 2), np.nan, np.float32); f1[te_idx] = p1
+                    r2s.append((1 - np.nansum((Y[ok] - f1[ok]) ** 2, 0) / sst).round(4).tolist())
+                per_seed[f"champion_{v}"] = r2s
         blocks = d["cycle"].astype(np.int64) * 1000 + d["pass_idx"]
         train_end = np.datetime64(int(d["time"][tr].max()), "s")
         reg = {"n_rows": int(ok.sum()), "n_passes": int(len(np.unique(blocks[ok]))),
                "train_end": str(train_end), "continent": CONT_OF[rid],
                "first_test_day": str(np.datetime64(int(d["time"][ok].min()), "s")),
                "last_test_day": str(np.datetime64(int(d["time"][ok].max()), "s")),
-               "overall": {}, "per_cycle": {}}
+               "overall": {}, "per_cycle": {}, "per_seed_r2": per_seed}
         ref = models["geos_calibrated"]
         for name, P in models.items():
             m = {}
@@ -344,6 +356,9 @@ def write_md(res: dict) -> None:
                      f"{v['r2']:.3f} [{v['r2_ci'][0]:.3f}, {v['r2_ci'][1]:.3f}] | {u['rmse']:.3f} | {v['rmse']:.3f} | "
                      f"{u['pct_rmse_vs_geos_cal']:+.1f} | {v['pct_rmse_vs_geos_cal']:+.1f} | "
                      f"{u['n_eff']:.0f}/{v['n_eff']:.0f} |")
+        for name, r2s in reg.get("per_seed_r2", {}).items():
+            L.append(f"\n{name}: single-seed R²_u/R²_v = " + ", ".join(f"{a:.3f}/{b:.3f}" for a, b in r2s)
+                     + f" (table row is the {len(r2s)}-seed mean prediction)")
         L.append("")
     (OUT / "results.md").write_text("\n".join(L), encoding="utf-8")
     log(f"wrote {OUT / 'results.md'}")
@@ -524,6 +539,44 @@ def fig_time_quarterly(res: dict, B: int = 500, seed: int = 0) -> None:
     _save(fig, "skill_through_time_quarterly")
 
 
+def fig_loro(res: dict) -> None:
+    """US regions: R² per component (u left, v right) for the in-training model, the all-regions model,
+    the leave-one-region-out model, the other-continents model and DUACS + wind; dots = single seeds."""
+    plt = _mpl()
+    regs = [r for r in CONTINENTS["us"] if r in res["regions"] and f"champion_us_wo_{r}_y1" in res["regions"][r]["overall"]]
+    bars = [("champion_us_y1", C_CHAMP, "US (own continent)"), ("champion_all_y1", C_ALL, "all 19 regions"),
+            ("loro", "#56B4E9", "US without this region"), ("champion_not_us_y1", C_AWAY, "other continents"),
+            ("duacs_cal+wind_lsq", C_DUACS, "DUACS calibrated + wind")]
+    w = 0.16
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.2), sharey=True)
+    for c, (ax, comp) in enumerate(zip(axes, "uv")):
+        for k, (name, color, label) in enumerate(bars):
+            x = np.arange(len(regs)) + (k - 2) * w
+            vals, seeds = [], []
+            for rid in regs:
+                reg = res["regions"][rid]; nm = f"champion_us_wo_{rid}_y1" if name == "loro" else name
+                vals.append(reg["overall"][nm][comp]["r2"] if nm in reg["overall"] else np.nan)
+                seeds.append([r2[c] for r2 in reg.get("per_seed_r2", {}).get(nm, [])])
+            vals = np.array(vals)
+            ax.bar(x, np.clip(vals, -1, None), w, color=color, label=label, zorder=2)
+            for xi, v, sd in zip(x, vals, seeds):
+                if v < -1:
+                    ax.text(xi, -0.98, f"{v:.1f}", ha="center", va="bottom", fontsize=5.5, rotation=90, color="white", zorder=4)
+                if sd:
+                    ax.plot([xi] * len(sd), np.clip(sd, -1, None), ls="none", marker="o", ms=2.5, mfc="white", mec="k", mew=0.5, zorder=3)
+        ax.axhline(0, color="k", lw=0.8)
+        ax.set_xticks(range(len(regs))); ax.set_xticklabels([_lab(r) for r in regs])
+        ax.set_title(f"R$^2$, {comp} component", loc="left", fontsize=9)
+        ax.set_ylim(-1, 0.6); ax.grid(axis="y", color="0.9", zorder=0)
+    axes[0].set_ylabel("R$^2$ on cycles 017-058 (clipped at $-$1)")
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.03), fontsize=8)
+    fig.suptitle("Leave-one-region-out within the US: skill of the champion recipe by training set "
+                 "(bar = seed-averaged prediction scored once, so it sits above the dots where seeds disagree; dots = single seeds)", fontsize=10, y=1.0)
+    fig.tight_layout()
+    _save(fig, "loro_us")
+
+
 def fig_map(res: dict) -> None:
     """World map: one marker per region, colour = R² (mean of u, v) of the champion trained
     on the other continents (left) and on the region's own continent (right)."""
@@ -560,12 +613,13 @@ def fig_grid(res: dict) -> None:
     In-continent cells (out-of-time only) are outlined."""
     plt = _mpl()
     regs = [r for r in REGIONS if r in res["regions"]]
-    cols = list(VARIANTS) + ["geos_cal+wind_lsq", "duacs_cal+wind_lsq", "cell_mean"]
-    labels = [c.replace("_y1", "").replace("not_", "not ") for c in VARIANTS] + ["geos cal+wind", "DUACS cal+wind", "cell clim."]
+    base = [v for v in VARIANTS if v not in LORO]
+    cols = base + ["loro", "geos_cal+wind_lsq", "duacs_cal+wind_lsq", "cell_mean"]
+    labels = [c.replace("_y1", "").replace("not_", "not ") for c in base] + ["US w/o own region", "geos cal+wind", "DUACS cal+wind", "cell clim."]
     M = np.full((len(regs), len(cols)), np.nan)
     for i, rid in enumerate(regs):
         for j, c in enumerate(cols):
-            name = f"champion_{c}" if c in VARIANTS else c
+            name = f"champion_{c}" if c in VARIANTS else f"champion_us_wo_{rid}_y1" if c == "loro" else c
             if name in res["regions"][rid]["overall"]:
                 M[i, j] = _r2(res["regions"][rid]["overall"][name])
     fig, ax = plt.subplots(figsize=(0.75 * len(cols) + 2.5, 0.32 * len(regs) + 1.5))
@@ -591,7 +645,7 @@ def fig_grid(res: dict) -> None:
 
 def figures() -> None:
     res = json.loads((OUT / "results.json").read_text(encoding="utf-8"))
-    fig_time(res); fig_time_quarterly(res); fig_grid(res); fig_map(res)
+    fig_time(res); fig_time_quarterly(res); fig_grid(res); fig_loro(res); fig_map(res)
 
 
 # --------------------------------------------------------------------------

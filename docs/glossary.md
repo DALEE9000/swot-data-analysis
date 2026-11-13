@@ -106,6 +106,8 @@ dataset, the owner is named so you can cite it.
 - **CRPS** — continuous ranked probability score; a proper score for probabilistic forecasts.
 - **QC** — quality control.
 - **N_eff** — effective sample size; the number of independent samples implied by the autocorrelation of the data.
+- **LORO** — leave-one-region-out; train on every region of a group but one, score the one left out (see the plain-language section).
+- **y1** — year one; SWOT science cycles 001-016, the training window of the holdout evaluation (see the plain-language section).
 
 ## Machine learning
 
@@ -147,3 +149,61 @@ dataset, the owner is named so you can cite it.
 - **S3** — Amazon Simple Storage Service; the project bucket `swot-ai-ssv`.
 - **GB** — gigabyte.
 - **UTC** — Coordinated Universal Time.
+
+## Plain-language explanations (added 2026-11-12)
+
+Short, non-technical versions of ideas that come up in the holdout
+results. Each one is written so it can be read on its own.
+
+**Seed.** Training a neural network starts from random initial weights and
+shuffles the data in a random order. The "seed" is the number that fixes
+that randomness. Two runs with the same seed give the same model; two runs
+with different seeds give two slightly different models trained on exactly
+the same data. Seeds 42, 43 and 44 in the holdout folders are three such
+runs.
+
+**Why the bar is not the average of the dots (ensembles).** In the figure
+`docs/figures/holdout/loro_us.png`: bars = average the seeds' predictions
+row by row first, then compute one R² of that averaged prediction; dots =
+R² of each seed's own prediction, one number per seed. The average is
+plain and unweighted. A toy example: the true current at one point is
+0.00; the three seeds predict +0.30, −0.30 and 0.00. Each seed alone is
+wrong by 0.30, 0.30 and 0.00. Average the three predictions and you get
+0.00, exactly right, because their mistakes pointed in different directions
+and cancelled. Over millions of rows the same thing happens: each seed makes
+random mistakes on top of the mistakes all seeds share, averaging cancels
+part of the random ones, so the averaged prediction scores better than a
+typical single seed. This averaged model is called an ensemble, and it is
+what the results tables report because it is the model one would actually
+use. Where the seeds agree, there is nothing to cancel and the bar sits on
+the dots. Where they disagree (every out-of-region model), the bar sits
+above the dots. Both numbers are correct; they answer different questions.
+The dots answer "how much does a single training run vary", the bar answers
+"how good is the model we would deploy".
+
+**Reading R².** One minus (the model's squared error) divided by (the
+spread of the truth). 1 is perfect. 0 means the model is no better than
+predicting the long-run average current at each point. Negative means the
+model is worse than that constant: its predictions add error. A u/v pair
+such as −0.36/+0.01 is R² for the east-west component, then for the
+north-south component.
+
+**Reading %ΔRMSE.** Percent change in root-mean-square error relative to
+the reference model (calibrated SWOT geostrophy fitted on the region's first
+year). Negative is better: −11 % means the model's error is 11 % smaller
+than the reference's. Positive means worse.
+
+**y1.** "Year one": SWOT science cycles 001-016, July 2023 to June 2024,
+the training window. `us_y1` is the champion recipe trained on year one of
+the US regions; `all_y1` on year one of all nineteen; `not_us_y1` on year
+one of every region outside the US.
+
+**LORO (leave-one-region-out).** Train on all the US regions except one,
+score the one left out. Folder names `us_wo_<region>_y1` ("US without").
+It asks whether a radar network the model has never seen can be predicted
+from its neighbours. The answer (2026-11-12) was no.
+
+**Cell climatology.** For each grid cell, the average current over the
+training year, used as the prediction for every later date. The weakest
+honest baseline: it knows where the mean currents are but nothing about
+today.
