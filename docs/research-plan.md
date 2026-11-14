@@ -152,28 +152,28 @@ experiment most likely to move skill and to produce a figure about the ocean
 rather than about the network.
 
 ### Week of 2026-11-18 — features
-- [ ] In `interp_sources`, sample ERA5 u10/v10 at the SWOT observation time
+- [x] (2026-11-12, as extra columns on the frozen holdout rows rather than in `interp_sources`: `scripts/phase2_features.py`) Sample ERA5 u10/v10 at the SWOT observation time
       minus each lag in {0, 3, 6, 12, 18, 24, 48, 96, 192} hours. Stencil
       k = 1 for wind (it is smooth at 0.25°): 18 columns.
-- [ ] Add the Coriolis parameter f (or sin of latitude) and sin/cos of
+- [x] (2026-11-12) Add the Coriolis parameter f (or sin of latitude) and sin/cos of
       day-of-year so the model can learn the inertial phase and the seasonal
       mixed-layer change.
-- [ ] Fold in the cheap extras from the paper notes in the same retrain: a
+- [~] (Laplacian, vorticity, strain, Okubo-Weiss, advection were already inside the champion's featurizer; 70 km pair and cyclogeostrophy deferred, need the gridded field) Fold in the cheap extras from the paper notes in the same retrain: a
       70-km Gaussian geostrophic pair (Tchonang's CCS optimum), Rossby
       number, SSH Laplacian, cyclogeostrophic speed.
 
 ### Weeks of 2026-11-25 and 2026-12-02 — retrain and ablate
-- [ ] Retrain RF, MLP, and the champion form with and without the lagged
+- [x] (2026-11-12/13: champion with fs, w, fsw; LightGBM with and without; the champion's MLP member stands in for the ann backend) Retrain RF, MLP, and the champion form with and without the lagged
       winds, under the Phase 1 protocol.
-- [ ] Stacked explained-variance figure: DUACS, then SWOT geostrophy, then
+- [x] (2026-11-13, `docs/figures/holdout/wind_history_gain`; result: no input moves the champion outside its bootstrap interval) Stacked explained-variance figure: DUACS, then SWOT geostrophy, then
       plus instantaneous wind, then plus wind history, then residual, for u
       and v separately.
 
 ### Week of 2026-12-09 — the response function
-- [ ] Perturb one wind lag at a time and plot the velocity response against
+- [x] (2026-11-12, `docs/figures/holdout/wind_response`: 1.2 % of wind speed at 28-41° right, almost all at lag 0; finer lag grid pending) Perturb one wind lag at a time and plot the velocity response against
       lag. Overlay on Ubelmann 2025 Fig. 8. A damped inertial oscillation
       with a seasonal amplitude change is the result to look for.
-- [ ] Expect a stronger, more downwind, less rotated response than the
+- [x] (2026-11-12: found weaker and about as rotated as the drifter literature, 1.2 % at 30-40° right; the linear fit agrees) Expect a stronger, more downwind, less rotated response than the
       drogued-drifter literature: HFR measures the top metre, where Stokes
       drift and wind slip live. State this in the paper before a reviewer
       does.

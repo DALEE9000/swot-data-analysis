@@ -28,6 +28,7 @@ Stages (each resumable; run from the repo root in the project env):
     python scripts/holdout_eval.py --freeze all             # every region, one subprocess each
     python scripts/holdout_eval.py --train us_y1,not_us_y1  # retrain the champion recipe (GPU, ~30-55 min each)
     python scripts/holdout_eval.py --train all
+    python scripts/holdout_eval.py --train us_y1 --featset fsw --pert   # Phase 2: + Coriolis, season, 8 wind lags; response rows
     python scripts/holdout_eval.py --score                  # results.json / results.md
     python scripts/holdout_eval.py --figures                # docs/figures/holdout/
 
@@ -76,6 +77,15 @@ VARIANTS = {
 # (gak and glna have no clean test rows, so holding them out teaches nothing)
 LORO = {f"us_wo_{r}_y1": [x for x in CONTINENTS["us"] if x != r] for r in ["uswc", "usegc", "prvi", "ushi"]}
 VARIANTS.update(LORO)
+# Phase 2 feature sets: extra per-row scalar columns from experiments/holdout/<rid>_p2.npz
+# (scripts/phase2_features.py), appended after the 72 stencil columns and routed to the
+# dense path by scripts/phase2_candidate.py. Variant folders are named "<variant>+<featset>".
+P2_LAGS = [3, 6, 12, 18, 24, 48, 96, 192]
+P2_WIND = [f"era5_{c}_lag{h}h" for c in "uv" for h in P2_LAGS]
+FEATSETS = {"fs": ["f_1e4", "sin_doy", "cos_doy"], "w": P2_WIND, "fsw": ["f_1e4", "sin_doy", "cos_doy"] + P2_WIND}
+PERT_DELTA = 2.0        # m/s added to one wind lag for the response function
+PERT_ROWS = 150_000     # clean test rows per perturbation region
+PERT_REGIONS = ["uswc", "usegc"]
 FEATURES = ["mdt", "ssha_filtered", "ugos_filtered", "vgos_filtered",
             "ugosa_filtered", "vgosa_filtered", "era5_u", "era5_v"]
 K = 3
@@ -169,9 +179,13 @@ def freeze(rid: str, chunk: int | None = None) -> Path:
     return out
 
 
-def load_region(rid: str) -> dict:
+def load_region(rid: str, featset: str | None = None) -> dict:
     d = np.load(OUT / f"{rid}.npz")
-    return {k: d[k] for k in d.files}
+    out = {k: d[k] for k in d.files}
+    if featset:
+        e = np.load(OUT / f"{rid}_p2.npz"); names = list(e["names"])
+        out["X"] = np.hstack([out["X"], e["E"][:, [names.index(c) for c in FEATSETS[featset]]]])
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -182,18 +196,82 @@ def test_mask(d: dict) -> np.ndarray:
     return d["cycle"] > LAST_TRAIN_CYCLE
 
 
-def train(variant: str, seed: int = 42) -> Path:
-    vdir = OUT / variant
+def _pert_rows(featset: str, rng: np.random.Generator) -> tuple[np.ndarray, dict]:
+    """Copies of clean test rows from PERT_REGIONS with +PERT_DELTA on one wind lag (every
+    column of the stencil era5_u/v block for lag 0, one extra column otherwise). Returns the
+    stacked rows and a meta dict (region, base row index within the region's test rows,
+    lag hours, component) so the response function is (pred_pert - pred_base) / PERT_DELTA."""
+    cols = FEATSETS[featset]; rows, meta = [], {"region": [], "base_idx": [], "lag_h": [], "comp": [], "n_per_block": []}
+    for rid in PERT_REGIONS:
+        d = load_region(rid, featset); te = test_mask(d)
+        X = d["X"][te]
+        clean = (d["grid_ok"] & (np.abs(d["dt_h"]) <= MAX_DT_H) & d["era5_ok"])[te] & np.isfinite(X[:, 72:]).all(1) \
+            & np.isfinite(X[:, col("ugos_filtered")]) & np.isfinite(X[:, col("era5_u")])
+        idx = rng.choice(np.flatnonzero(clean), size=min(PERT_ROWS, int(clean.sum())), replace=False)
+        base = X[idx]
+        for comp in "uv":
+            for h in [0] + P2_LAGS:
+                Xp = base.copy()
+                if h == 0:
+                    f0 = FEATURES.index(f"era5_{comp}") * K * K
+                    Xp[:, f0:f0 + K * K] += PERT_DELTA
+                else:
+                    Xp[:, 72 + cols.index(f"era5_{comp}_lag{h}h")] += PERT_DELTA
+                rows.append(Xp); meta["region"].append(rid); meta["lag_h"].append(h); meta["comp"].append(comp)
+                meta["n_per_block"].append(len(idx))
+        meta["base_idx"].append(idx.tolist())
+    return np.concatenate(rows), meta
+
+
+def train(variant: str, seed: int = 42, featset: str | None = None, pert: bool = False, learner: str | None = None) -> Path:
+    """Folder: <variant>[+<featset>][@<learner>]; learner None = the champion recipe, "trees" =
+    scripts/phase2_trees_candidate.py (LightGBM). A learner run reuses the champion folder's
+    data.npz when it exists."""
+    base = f"{variant}+{featset}" if featset else variant
+    vdir = OUT / (f"{base}@{learner}" if learner else base)
     pred_path = vdir / f"pred_seed{seed}.npz"
     if pred_path.exists():
         log(f"{variant}: {pred_path.name} exists, skipping")
         return pred_path
     vdir.mkdir(parents=True, exist_ok=True)
     data_path = vdir / "data.npz"
-    if not data_path.exists():
+    if learner and (OUT / base / "data.npz").exists() and not data_path.exists():
+        data_path = OUT / base / "data.npz"
+        for f in ("data_meta.json", "pert_meta.json"):
+            if (OUT / base / f).exists():
+                (vdir / f).write_bytes((OUT / base / f).read_bytes())
+    if not data_path.exists():   # build in a child so this process holds no build memory while training runs
+        subprocess.run([PY, __file__, "--_build_one", variant, featset or "-", "1" if pert else "0"],
+                       cwd=REPO, check=True, env=ENV)
+    cand = REPO / "scripts" / f"phase2_{learner}_candidate.py" if learner else \
+        REPO / "scripts" / "phase2_candidate.py" if featset else RUN / "candidates" / CHAMPION / "candidate.py"
+    params = dict(json.loads((RUN / "candidates" / CHAMPION / "params.json").read_text()), seed=seed)
+    if featset:
+        params["n_stencil_cols"] = len(FEATURES) * K * K
+    (vdir / f"params_seed{seed}.json").write_text(json.dumps(params), encoding="utf-8")
+    log(f"{vdir.name}: training {learner or CHAMPION} seed {seed} (budget {params['time_budget_s']:.0f} s)...")
+    t0 = time.time()
+    r = subprocess.run([PY, "-m", "swotxai.evolve.run_candidate", str(cand), str(data_path), str(pred_path),
+                        str(vdir / f"meta_seed{seed}.json"), str(vdir / f"params_seed{seed}.json")],
+                       cwd=REPO, timeout=params["time_budget_s"] * 2 + 600, check=False, env=ENV)
+    if not (vdir / f"meta_seed{seed}.json").exists():
+        raise RuntimeError(f"{vdir.name}: training process died without writing meta (exit code {r.returncode})")
+    meta = json.loads((vdir / f"meta_seed{seed}.json").read_text())
+    if meta.get("status") != "ok":
+        raise RuntimeError(f"{variant}: training failed: {meta.get('error')}")
+    log(f"{variant}: done in {time.time() - t0:.0f} s (train {meta['train_seconds']:.0f} s) -> {pred_path}")
+    return pred_path
+
+
+def build_data(variant: str, featset: str | None, pert: bool) -> None:
+    """Write <vdir>/data.npz (+ data_meta.json, pert_meta.json): the variant's training rows
+    and the test rows of every region, with the feature set's extra columns appended."""
+    vdir = OUT / (f"{variant}+{featset}" if featset else variant); vdir.mkdir(parents=True, exist_ok=True)
+    data_path = vdir / "data.npz"
+    if True:
         Xtr, Ytr, Ttr = [], [], []
         for rid in VARIANTS[variant]:
-            d = load_region(rid)
+            d = load_region(rid, featset)
             m = ~test_mask(d)
             Xtr.append(d["X"][m]); Ytr.append(d["Y"][m]); Ttr.append(d["time"][m])
         Xtr, Ytr, Ttr = (np.concatenate(a) for a in (Xtr, Ytr, Ttr))
@@ -201,30 +279,22 @@ def train(variant: str, seed: int = 42) -> Path:
         Xtr, Ytr = Xtr[order], Ytr[order]
         Xte, spans, pos = [], {}, 0
         for rid in REGIONS:                       # every region is scored, in-region or not
-            d = load_region(rid)
+            d = load_region(rid, featset)
             m = test_mask(d)
             Xte.append(d["X"][m]); spans[rid] = [pos, pos + int(m.sum())]; pos += int(m.sum())
+        n_test = pos
+        if pert and featset and "w" in featset:   # response-function rows ride along after the test rows
+            Xp, pmeta = _pert_rows(featset, np.random.default_rng(0))
+            Xte.append(Xp); (vdir / "pert_meta.json").write_text(json.dumps(pmeta), encoding="utf-8")
+            log(f"{variant}+{featset}: {len(Xp):,} perturbation rows appended")
         Xte = np.concatenate(Xte)
         np.savez(data_path, X_train=Xtr, Y_train=Ytr, X_test=Xte, Y_test=np.zeros((len(Xte), 2), np.float32))
         (vdir / "data_meta.json").write_text(json.dumps({
-            "variant": variant, "train_regions": VARIANTS[variant], "train_cycles": [1, LAST_TRAIN_CYCLE],
-            "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "test_spans": spans,
+            "variant": variant, "featset": featset, "extra_columns": FEATSETS[featset] if featset else [],
+            "train_regions": VARIANTS[variant], "train_cycles": [1, LAST_TRAIN_CYCLE],
+            "n_train": int(len(Xtr)), "n_test": int(n_test), "n_pert": int(len(Xte) - n_test), "test_spans": spans,
             "features": FEATURES, "stencil_k": K, "row_order": "chronological"}, indent=2), encoding="utf-8")
         log(f"{variant}: froze {len(Xtr):,} training rows ({len(VARIANTS[variant])} regions), {len(Xte):,} test rows")
-        del Xtr, Ytr, Xte
-    cand = RUN / "candidates" / CHAMPION / "candidate.py"
-    params = dict(json.loads((RUN / "candidates" / CHAMPION / "params.json").read_text()), seed=seed)
-    (vdir / f"params_seed{seed}.json").write_text(json.dumps(params), encoding="utf-8")
-    log(f"{variant}: training {CHAMPION} seed {seed} (budget {params['time_budget_s']:.0f} s)...")
-    t0 = time.time()
-    subprocess.run([PY, "-m", "swotxai.evolve.run_candidate", str(cand), str(data_path), str(pred_path),
-                    str(vdir / f"meta_seed{seed}.json"), str(vdir / f"params_seed{seed}.json")],
-                   cwd=REPO, timeout=params["time_budget_s"] * 2 + 600, check=False, env=ENV)
-    meta = json.loads((vdir / f"meta_seed{seed}.json").read_text())
-    if meta.get("status") != "ok":
-        raise RuntimeError(f"{variant}: training failed: {meta.get('error')}")
-    log(f"{variant}: done in {time.time() - t0:.0f} s (train {meta['train_seconds']:.0f} s) -> {pred_path}")
-    return pred_path
 
 
 # --------------------------------------------------------------------------
@@ -234,10 +304,8 @@ def train(variant: str, seed: int = 42) -> Path:
 def _variant_preds(rid: str) -> dict[str, np.ndarray]:
     """variant -> list of (n_test_rows_of_region, 2) predictions, one per seed."""
     out = {}
-    for v in VARIANTS:
-        vdir = OUT / v
-        if not (vdir / "data_meta.json").exists():
-            continue
+    for vdir in sorted(p.parent for p in OUT.glob("*/data_meta.json")):
+        v = vdir.name
         s, e = json.load(open(vdir / "data_meta.json"))["test_spans"][rid]
         preds = [np.load(p)["pred"][s:e] for p in sorted(vdir.glob("pred_seed*.npz"))]
         if preds:
@@ -577,6 +645,143 @@ def fig_loro(res: dict) -> None:
     _save(fig, "loro_us")
 
 
+def fig_wind_gain(res: dict) -> None:
+    """Top: the explained-variance ladder on the US regions, u and v: DUACS, SWOT geostrophy,
+    + instantaneous wind (linear), the champion (has instantaneous wind), + f and season,
+    + wind history, + both. Bottom: all-regions champion with and without the full Phase 2
+    set, every scored region (dumbbell, mean of u and v)."""
+    plt = _mpl()
+    ladder = [("duacs_calibrated", C_DUACS, "DUACS calibrated"), ("geos_calibrated", C_GEOS, "SWOT geostrophy calibrated"),
+              ("geos_cal+wind_lsq", "#BBBBBB", "+ wind, linear"), ("champion_us_y1", C_CHAMP, "champion (SWOT + wind)"),
+              ("champion_us_y1+fs", "#56B4E9", "+ Coriolis, season"), ("champion_us_y1+w", "#CC79A7", "+ wind history (8 lags)"),
+              ("champion_us_y1+fsw", "#D55E00", "+ both"),
+              ("champion_us_y1@trees", "none", "trees (SWOT + wind)"), ("champion_us_y1+fsw@trees", "none", "trees + both")]
+    regs = [r for r in CONTINENTS["us"] if r in res["regions"]]
+    fig = plt.figure(figsize=(10, 7))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1, 1.1])
+    w = 0.09
+    for c, comp in enumerate("uv"):
+        ax = fig.add_subplot(gs[0, c])
+        for k, (name, color, label) in enumerate(ladder):
+            vals = [res["regions"][r]["overall"].get(name, {}).get(comp, {}).get("r2", np.nan) for r in regs]
+            kw = dict(color=color) if color != "none" else dict(color="white", edgecolor="0.3", hatch="///" if "fsw" in name else "...")
+            ax.bar(np.arange(len(regs)) + (k - 4) * w, np.clip(vals, -0.05, None), w, label=label, zorder=2, **kw)
+        ax.axhline(0, color="k", lw=0.8); ax.grid(axis="y", color="0.9", zorder=0)
+        ax.set_xticks(range(len(regs))); ax.set_xticklabels([_lab(r) for r in regs])
+        ax.set_title(f"R$^2$, {comp} component (US regions, trained on US year one)", loc="left", fontsize=9)
+        ax.set_ylim(-0.05, 0.65)
+        if c == 0:
+            ax.set_ylabel("R$^2$ on cycles 017-058")
+            top_handles = ax.get_legend_handles_labels()
+    ax = fig.add_subplot(gs[1, :])
+    regs2 = [r for r in REGIONS if r in res["regions"] and "champion_all_y1+fsw" in res["regions"][r]["overall"]]
+    a = np.array([_r2(res["regions"][r]["overall"]["champion_all_y1"]) for r in regs2])
+    b = np.array([_r2(res["regions"][r]["overall"]["champion_all_y1+fsw"]) for r in regs2])
+    x = np.arange(len(regs2))
+    for xi, a0, b0 in zip(x, a, b):
+        ax.plot([xi, xi], [max(a0, -0.1), max(b0, -0.1)], color="0.6", lw=1.5, zorder=1)
+    ax.plot(x, np.maximum(a, -0.1), ls="none", marker="o", color=C_ALL, label="all 19 regions, champion", zorder=2)
+    ax.plot(x, np.maximum(b, -0.1), ls="none", marker="o", color="#D55E00", label="all 19 regions + Coriolis, season, wind history", zorder=3)
+    for xi, a0, b0 in zip(x, a, b):
+        ax.text(xi, max(a0, b0, -0.1) + 0.02, f"{b0 - a0:+.2f}", ha="center", fontsize=6.5, color="0.3")
+    ax.axhline(0, color="k", lw=0.8); ax.grid(axis="y", color="0.9", zorder=0)
+    ax.set_xticks(x); ax.set_xticklabels([_lab(r) for r in regs2], rotation=40, ha="right")
+    ax.set_ylabel("R$^2$ (mean of u, v)"); ax.set_ylim(-0.12, 0.65)
+    ax.set_title("Every region: gain from the Phase 2 inputs (label = change in R$^2$)", loc="left", fontsize=9)
+    ax.legend(fontsize=7.5, frameon=False, loc="upper right")
+    fig.suptitle("What each input adds, cycles 017-058 (train cycles 001-016)", fontsize=10)
+    fig.legend(*top_handles, fontsize=7, frameon=False, ncol=5, loc="upper center", bbox_to_anchor=(0.5, 0.955))
+    fig.tight_layout(rect=(0, 0, 1, 0.91))
+    _save(fig, "wind_history_gain")
+
+
+def _response(vname: str) -> dict | None:
+    """Finite-difference wind response of a trained variant from its perturbation rows:
+    {region: {season: (lags_h, along (nlag,), cross (nlag,), n)}}; along = current change in
+    the direction of the wind perturbation, cross = to its left; units m/s per m/s."""
+    vdir = OUT / vname
+    if not (vdir / "pert_meta.json").exists() or not (vdir / "pred_seed42.npz").exists():
+        return None
+    meta = json.load(open(vdir / "data_meta.json")); pm = json.load(open(vdir / "pert_meta.json"))
+    pred = np.load(vdir / "pred_seed42.npz")["pred"]; n_test = meta["n_test"]
+    out, pos, base_i = {}, n_test, 0
+    for b in range(len(pm["region"])):
+        rid, h, comp, nb = pm["region"][b], pm["lag_h"][b], pm["comp"][b], pm["n_per_block"][b]
+        if rid not in out:
+            idx = np.array(pm["base_idx"][base_i]); base_i += 1
+            d = load_region(rid); t = d["time"][test_mask(d)][idx]
+            mo = t.astype("datetime64[s]").astype("datetime64[M]").astype(int) % 12 + 1
+            s0 = meta["test_spans"][rid][0]
+            out[rid] = {"_base": pred[s0 + idx], "_season": np.where(np.isin(mo, [5, 6, 7, 8, 9]), "May-Sep",
+                                                                       np.where(np.isin(mo, [11, 12, 1, 2, 3]), "Nov-Mar", "other")),
+                        "_acc": {}}
+        dP = (pred[pos:pos + nb] - out[rid]["_base"]) / PERT_DELTA; pos += nb
+        along, cross = (dP[:, 0], dP[:, 1]) if comp == "u" else (dP[:, 1], -dP[:, 0])
+        for season in ("all", "May-Sep", "Nov-Mar"):
+            m = np.ones(nb, bool) if season == "all" else out[rid]["_season"] == season
+            acc = out[rid]["_acc"].setdefault(season, {})
+            a = acc.setdefault(h, [[], [], 0]); a[0].append(along[m].mean()); a[1].append(cross[m].mean()); a[2] = int(m.sum())
+    res = {}
+    for rid, o in out.items():
+        res[rid] = {}
+        for season, acc in o["_acc"].items():
+            lags = sorted(acc)
+            res[rid][season] = (np.array(lags), np.array([np.mean(acc[h][0]) for h in lags]),
+                                np.array([np.mean(acc[h][1]) for h in lags]), acc[lags[0]][2])
+    return res
+
+
+def fig_wind_response(res: dict) -> None:
+    """Response of the predicted current to +1 m/s of wind at one lag, all other inputs fixed:
+    along-wind (top) and cross-wind, positive to the left of the wind (bottom), against lag,
+    per region (columns); all-year, May-Sep and Nov-Mar for the US-trained model, all-year for
+    the all-regions model. The lag-0 point perturbs the stencil wind, the others one lag column."""
+    plt = _mpl()
+    R = {v: _response(v) for v in ("us_y1+fsw", "all_y1+fsw")}
+    R = {k: v for k, v in R.items() if v}
+    if not R:
+        log("no perturbation predictions yet, skipping wind_response"); return
+    regs = sorted({r for v in R.values() for r in v})
+    fig, axes = plt.subplots(2, len(regs), figsize=(4.2 * len(regs), 5.5), sharex=True, sharey="row", squeeze=False)
+    styles = {"all": ("k", "-", "all year"), "May-Sep": ("#D55E00", "-", "May-Sep"), "Nov-Mar": ("#0072B2", "-", "Nov-Mar")}
+    for j, rid in enumerate(regs):
+        for i, (what, ylab) in enumerate([(1, "along-wind response\n(m/s current per m/s wind)"), (2, "cross-wind response, + = left of wind\n(m/s per m/s)")]):
+            ax = axes[i, j]
+            for v, lsty, lw in (("us_y1+fsw", "-", 1.6), ("all_y1+fsw", "--", 1.1)):
+                if v not in R or rid not in R[v]:
+                    continue
+                for season, (color, _, label) in styles.items():
+                    if v == "all_y1+fsw" and season != "all":
+                        continue
+                    lags, along, cross, n = R[v][rid][season]
+                    y = along if what == 1 else cross
+                    xs = np.where(lags == 0, 1.5, lags)
+                    ax.plot(xs, 100 * y, color=color, ls=lsty, lw=lw, marker="o", ms=3,
+                            label=f"{label}, {'US' if v.startswith('us') else 'all-regions'} model" + (f" (n = {n:,})" if season == "all" and v.startswith("us") else ""))
+            if i == 0 and "us_y1+fsw" in R and rid in R["us_y1+fsw"]:
+                _, al, cr, _ = R["us_y1+fsw"][rid]["all"]
+                mag, ang = 100 * np.hypot(al.sum(), cr.sum()), np.degrees(np.arctan2(cr.sum(), al.sum()))
+                side = "left" if ang > 0 else "right"
+                ax.text(0.98, 0.95, "sum over lags (a steady +1 m/s wind):\n"
+                        f"{mag:.2f} % of wind speed, {abs(ang):.0f}$^\\circ$ {side} of the wind",
+                        transform=ax.transAxes, ha="right", va="top", fontsize=7, bbox=dict(fc="white", ec="none", alpha=0.8))
+            ax.axhline(0, color="0.7", lw=0.8); ax.set_xscale("log")
+            ax.set_xticks([1.5, 3, 6, 12, 24, 48, 96, 192]); ax.set_xticklabels(["0", "3", "6", "12", "24", "48", "96", "192"])
+            ax.grid(color="0.92")
+            if i == 0:
+                ax.set_title(_lab(rid), loc="left", fontsize=9)
+            if i == 1:
+                ax.set_xlabel("lag of the perturbed wind (hours before the SWOT pass)")
+            if j == 0:
+                ax.set_ylabel(ylab.replace("(m/s current per m/s wind)", "(% of wind speed)").replace("(m/s per m/s)", "(% of wind speed)"))
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=7.5, bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("Wind response function of the trained network: change in predicted surface current per +1 m/s of 10 m wind at one lag, "
+                 "everything else held fixed", fontsize=9.5, y=1.0)
+    fig.tight_layout()
+    _save(fig, "wind_response")
+
+
 def fig_map(res: dict) -> None:
     """World map: one marker per region, colour = R² (mean of u, v) of the champion trained
     on the other continents (left) and on the region's own continent (right)."""
@@ -646,6 +851,11 @@ def fig_grid(res: dict) -> None:
 def figures() -> None:
     res = json.loads((OUT / "results.json").read_text(encoding="utf-8"))
     fig_time(res); fig_time_quarterly(res); fig_grid(res); fig_loro(res); fig_map(res)
+    for f in (fig_wind_gain, fig_wind_response):      # Phase 2 figures; absent runs are skipped
+        try:
+            f(res)
+        except Exception as exc:  # noqa: BLE001
+            log(f"{f.__name__} skipped: {type(exc).__name__}: {exc}")
 
 
 # --------------------------------------------------------------------------
@@ -655,14 +865,21 @@ def main() -> None:
     ap.add_argument("--freeze", help="region list or all (each region in its own subprocess)")
     ap.add_argument("--train", help="variant list or all")
     ap.add_argument("--seeds", default="42")
+    ap.add_argument("--featset", choices=list(FEATSETS), help="train: append this Phase 2 feature set (folder <variant>+<featset>)")
+    ap.add_argument("--pert", action="store_true", help="train: add wind-perturbation rows to the test set (response function)")
+    ap.add_argument("--learner", choices=["trees"], help="train: LightGBM instead of the champion recipe (folder suffix @trees)")
     ap.add_argument("--score", action="store_true")
     ap.add_argument("--bootstrap", type=int, default=1000)
     ap.add_argument("--figures", action="store_true")
     ap.add_argument("--chunk", type=int, help="freeze: flatten this many cycles at a time (memory relief for big regions)")
     ap.add_argument("--_freeze_one", help=argparse.SUPPRESS)
+    ap.add_argument("--_build_one", nargs=3, help=argparse.SUPPRESS)
     a = ap.parse_args()
     if a._freeze_one:
         freeze(a._freeze_one, a.chunk); return
+    if a._build_one:
+        v, fs, pt = a._build_one
+        build_data(v, None if fs == "-" else fs, pt == "1"); return
     if a.freeze:
         for rid in (REGIONS if a.freeze == "all" else a.freeze.split(",")):
             if (OUT / f"{rid}.npz").exists():
@@ -672,7 +889,7 @@ def main() -> None:
     if a.train:
         for v in (list(VARIANTS) if a.train == "all" else a.train.split(",")):
             for seed in (int(s) for s in a.seeds.split(",")):
-                train(v, seed)
+                train(v, seed, a.featset, a.pert, a.learner)
     if a.score:
         score_all(a.bootstrap)
     if a.figures:
