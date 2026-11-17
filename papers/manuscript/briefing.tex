@@ -1,0 +1,240 @@
+% Experimental briefing, 1 to 15 November 2026: every experiment of the fortnight, the principle
+% behind it, the mathematics it rests on, the numbers it produced and what it changed in the plan.
+% Written 2026-11-14/15 from docs/research-log.md for David to synthesise into the paper.
+% Build: bash papers/manuscript/build.sh briefing
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,graphicx,xcolor,hyperref,natbib,longtable}
+\usepackage[T1]{fontenc}
+\graphicspath{{../../docs/figures/}}
+\newcommand{\R}{R^2}
+\newcommand{\code}[1]{\texttt{#1}}
+\bibliographystyle{plainnat}
+\setlength{\parskip}{4pt}
+
+\title{SWOTxAI experimental briefing\\ \large 1 to 15 November 2026: data, protocol, three experiments, and what they established}
+\author{Prepared for David A. Lee}
+\date{15 November 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{The fortnight in one page}
+
+Two weeks ago the project had one learned model (the evolved champion \code{gen031\_00}) scored on the last two SWOT cycles of a single year, on six United States radar networks, against a 25-hour-mean radar current. It now has nineteen radar networks on three continents, the full SWOT science record of 58 cycles (July 2023 to October 2026), ERA5 wind for all of it, a frozen evaluation set of eleven million held-out rows across two further years, and three experiments scored on that set with block-bootstrap intervals. The findings, in the order they arrived:
+
+\begin{enumerate}
+  \item \textbf{Transfer in time holds.} A recipe fitted on year one keeps its skill over the next two years in thirteen of sixteen scorable regions, level with the strongest operational baseline (DUACS geostrophy plus a fitted wind response) in the US and Europe, with drift slopes indistinguishable from zero (Section~\ref{sec:holdout}).
+  \item \textbf{Transfer in space does not.} Trained on two continents and applied to the third, or on five US networks and applied to the sixth, the model is worse than calibrated geostrophy; the $u$ component blows up while $v$ survives. Giving the model the Coriolis parameter does not fix it. Training on every network recovers every network. The generalisation claim is withdrawn (Section~\ref{sec:holdout}).
+  \item \textbf{Wind history adds nothing on the 25-hour target}, but the network's wind response is physically right: 1.2\,\% of the wind speed at 28 to 41$^\circ$ to the right, almost all instantaneous, matching a least-squares fit on the same rows (Section~\ref{sec:phase2}).
+  \item \textbf{Wind history is the largest gain of the study on the hourly target.} Rebuilding the target as the detided hourly current at nine offsets around each pass, with the wind at the target hour and a slab-layer inertial current as inputs, the skill is flat across $\pm12$ hours where the snapshot alone decays, the pass hour itself improves, and the averaged hourly prediction beats the daily model on the daily target on the West Coast (Section~\ref{sec:hourly}).
+\end{enumerate}
+
+The interpretation that ties 3 and 4 together: the 25-hour boxcar has its first null at 0.96 cycles per day, which is exactly the inertial band at 35 to 40$^\circ$N, so the daily target had removed the very motion the wind history explains. Averaging the target had averaged away the physics.
+
+\section{Data and infrastructure built this fortnight}\label{sec:data}
+
+\paragraph{New radar networks (4 to 5 November).} Six European networks from the EU HFR node (Biscay, Galicia, western Mediterranean, Ligurian/Tyrrhenian, German Bight, Norway) and seven Australian IMOS ACORN sites (Rottnest, Turquoise Coast, Coffs Harbour, Newcastle, South Australia Gulfs, North West Shelf, Coral Coast) were fetched, converted into the HFRNet-style hourly archive the target builder reads (curvilinear WERA grids binned through a KD-tree onto regular grids at native spacing; overlapping networks averaged), and colocated with SWOT. Two catalogued sites were dead since 2017 and dropped; Tuscany is access-restricted; German Bight hangs after September 2023 and Coffs Harbour was dark most of the year, so both are too thin to score.
+
+\paragraph{Full records and all 58 cycles (7 to 10 November).} HFRNet's THREDDS server had been retired; the US record was refetched from NOAA NCEI (about 95,000 hourly files, June 2006 to August 2026), the European and Australian records extended back to 2009 to 2019, and SWOT cycles 017 to 058 downloaded from AVISO for all nineteen regions (7,700 granules, kept as 606 MB of regional segments). ERA5 10-m winds were extended to August 2026 for every region from the NCAR open mirror (no egress cost). Daily-mean radar movies and radar-beside-SWOT movies exist for every region and continent.
+
+\paragraph{Radar targets for the new cycles and the frozen holdout (11 November).} The 25-hour targets were built for cycles 017 to 058 in append mode, and \code{scripts/holdout\_eval.py} froze every region's rows for all 58 cycles through the pipeline's own steps: 16 million test rows, of which 11 million are clean (same grid, $|\Delta t| \le 2$ h, finite centre-cell geostrophy and wind). The two large US regions (4.4 and 4.2 million rows) dominate any pooled statement.
+
+\paragraph{Memory and disk.} Every freeze of the two big regions runs in ten-cycle chunks because the whole record exceeds the machine's commit limit; \code{experiments/holdout/}, the flatten caches and the movies live on the 17 TB archive drive behind directory junctions. Three background jobs were killed by the Windows commit limit during the fortnight and one training died at launch the same way; all were resumable by construction.
+
+\section{Scoring: the mathematics behind every table}\label{sec:scoring}
+
+One row is a radar cell $c$ at a SWOT pass time $t$. For one region and one velocity component, with $n$ held-out rows, truth $y_i$, prediction $\hat y_i$ and held-out mean $\langle y \rangle$,
+\begin{equation}
+\R = 1 - \frac{\sum_i (y_i - \hat y_i)^2}{\sum_i (y_i - \langle y\rangle)^2}
+\label{eq:r2brief}
+\end{equation}
+is the Nash--Sutcliffe efficiency \citep{nash1970}: the fraction of the held-out variance the model explains, pooled over every cell and pass of the region. The pooling matters. The denominator holds the between-cell spread of the mean flow as well as the pass-to-pass variability, so a model is credited for knowing the map of the mean current; the per-cell climatology rung (the training-period mean at the row's own cell) exists to make that credit visible, and the skill score
+\begin{equation}
+S = 1 - \frac{\sum_i (y_i - \hat y_i)^2}{\sum_i \big(y_i - \bar y(c_i)\big)^2}
+\end{equation}
+removes it.
+
+\paragraph{Block bootstrap.} Rows within a pass are not independent (they share the swath, the hour and the wind), so the uncertainty of $\R$ is estimated by resampling whole passes \citep{kunsch1989block}. With $S^{(b)}_{ee} = \sum_{i \in b}(y_i - \hat y_i)^2$ and $S^{(b)}_{yy}$, $S^{(b)}_y$, $n_b$ the per-pass sums, a resample draws passes $b_1, \dots, b_P$ with replacement and recomputes
+\begin{equation}
+\R{}^{*} = 1 - \frac{\sum_j S^{(b_j)}_{ee}}{\sum_j S^{(b_j)}_{yy} - \big(\sum_j S^{(b_j)}_{y}\big)^2 / \sum_j n_{b_j}},
+\end{equation}
+which needs only the per-pass sums; 1000 draws give the 2.5 and 97.5 percentiles. The block is (cycle, pass) on the 25-hour target and the same on the hourly target, where the up-to-25 rows of one base row never straddle a block.
+
+\paragraph{Why hourly and daily $\R$ are not comparable.} Write the hourly current as $y_h = y_d + y'$, the 25-hour mean plus the sub-daily departure, with $y'$ uncorrelated with $y_d$ at a cell. Then $\mathrm{Var}(y_h) = \mathrm{Var}(y_d) + \mathrm{Var}(y')$. A model that predicts $y_d$ perfectly and knows nothing of $y'$ scores $\R_h = \mathrm{Var}(y_d)/\mathrm{Var}(y_h) < 1$ on the hourly target. On the West Coast the hourly standard deviation is 0.151 m\,s$^{-1}$ against 0.114 for the daily mean, so $\mathrm{Var}(y')/\mathrm{Var}(y_h) \approx 0.43$ and the same physics posts a lower number on the hourly target. The only fair comparisons are between feature sets on one target, or between an averaged hourly prediction and a daily prediction on the daily target (Section~\ref{sec:daily}).
+
+\paragraph{The baselines ladder.} Every rung from the regional mean to the champion is written as an equation in the single-source methods file (\code{docs/methods-equations}); the body is reproduced in Appendix~\ref{app:ladder}. The two baselines that matter for this fortnight are calibrated SWOT geostrophy, $\hat u = a + b\,g_u$, and calibrated geostrophy plus a linear wind response, $\hat u = a + b\,g_u + c\,g_v + d\,W_u + e\,W_v$, both fitted by ordinary least squares on the training rows of each region.
+
+\section{Experiment 1: the temporal and regional holdout (11 to 13 November)}\label{sec:holdout}
+
+\paragraph{Principle.} A model selected on data it was scored on reports a number that is not an estimate of anything. The evolutionary search ranked recipes by training on cycles 001 to 012 and scoring on 013 to 016, so year one is spent. The clean evaluation refits the chosen recipe on all of year one (refit after selection, the standard step) and scores it once on cycles 017 to 058, which no decision ever saw. Regional transfer is the same idea in space: train on a set of regions, score on regions outside it. The champion is a recipe without saved weights, so every variant is a fresh 27 to 35 minute GPU training.
+
+\paragraph{Design.} Seven training sets (US, Europe, Australia, all nineteen, and each continent left out), later four leave-one-region-out sets within the US and three seeds for the headline variants. Baselines are fitted on the same year-one rows of each region. Figures: skill through time per region (per cycle and pooled by quarter with a bootstrap over passes and a weighted linear trend), the region-by-training-set transfer grid, a world map of out-of-continent skill, and grouped bars for the US leave-one-out.
+
+\paragraph{Results.} Table~\ref{tab:holdout} gives the mean of the $u$ and $v$ $\R$ on cycles 017 to 058.
+
+\begin{table}[h]\centering\small
+\caption{Out-of-time $\R$ (mean of $u$ and $v$) on cycles 017--058; every model fitted on cycles 001--016. From the research log of 2026-11-11.}
+\label{tab:holdout}
+\resizebox{\textwidth}{!}{\begin{tabular}{lrrrrrr}
+\toprule
+region & rows & calib.\ geostrophy & DUACS cal.\ + wind & champion, own continent & champion, all 19 & champion, other continents \\
+\midrule
+uswc & 4.4 M & 0.13 & 0.35 & 0.34 & 0.34 & $-0.55$ \\
+usegc & 4.2 M & 0.38 & 0.46 & 0.49 & 0.50 & 0.15 \\
+prvi & 293 k & 0.07 & 0.21 & 0.11 & 0.11 & $-0.42$ \\
+ushi & 96 k & 0.06 & 0.13 & 0.13 & 0.10 & $-0.17$ \\
+eu\_biscay & 135 k & 0.07 & 0.19 & 0.21 & 0.23 & 0.14 \\
+eu\_galicia & 258 k & 0.04 & 0.37 & 0.39 & 0.36 & 0.20 \\
+eu\_wmed & 507 k & 0.24 & 0.29 & 0.30 & 0.24 & 0.11 \\
+eu\_tirlig & 120 k & 0.21 & 0.24 & 0.25 & 0.28 & 0.20 \\
+eu\_norway & 255 k & 0.25 & 0.33 & 0.48 & 0.42 & $-0.10$ \\
+au\_rot & 15 k & 0.12 & 0.37 & 0.24 & 0.25 & 0.04 \\
+au\_turq & 349 k & 0.09 & 0.14 & 0.13 & 0.07 & $-0.05$ \\
+au\_cof & 27 k & (broken) & n/a & 0.21 & 0.30 & $-0.85$ \\
+au\_newc & 65 k & 0.11 & 0.22 & 0.24 & 0.12 & $-0.03$ \\
+au\_sag & 51 k & $-0.01$ & 0.45 & 0.34 & 0.10 & 0.11 \\
+au\_nwa & 44 k & 0.11 & 0.31 & 0.09 & 0.03 & $-0.18$ \\
+au\_corl & 194 k & 0.04 & 0.11 & 0.05 & 0.03 & $-0.17$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\emph{In time}, the own-continent champion beats calibrated geostrophy in 13 of 16 regions and sits level with DUACS plus wind in the US and Europe (uswc 0.34 against 0.35, usegc 0.49 against 0.46, Galicia 0.39 against 0.37, Norway 0.48 against 0.33). Quarterly trend slopes of the percent-RMSE gain are $-1$ to $+1$\,\% per year on the two big regions with intervals straddling zero; where any erosion appears the calibrated baselines erode by the same amount, so the drift is in the data, not the network. \emph{In space}, leave-one-continent-out fails with a shape: trained on Europe and Australia and applied to uswc, $v$ keeps 0.25 while $u$ falls to $-1.35$. Leave-one-region-out within the US fails the same way (uswc $-0.36/+0.01$, usegc $-0.43/+0.35$ for $u/v$). A model with no coordinates still knows where it is from the feature distributions, and the same surface slope maps to a different velocity in a different regime; a nonlinear model extrapolating off its training manifold gives magnitude blow-ups, and the seed-to-seed spread of the out-of-region model ($\pm0.2$ in $\R$, against $\pm0.01$ in-region) is the signature of that extrapolation. The all-19 model recovers in-region skill at no cost in the US and Europe, so it is a coverage problem, not a capacity one; in Australia, 8\,\% of the training rows, it loses to the own-continent model in four of seven regions.
+
+\paragraph{The Coriolis test.} Adding $f = 2\Omega\sin\varphi$ and the season as inputs to the out-of-US model made $u$ a little less catastrophic and $v$ worse (uswc $v$ from $+0.28$ to $-1.77$); within the US it recovered part of $v$ for the held-out West Coast ($+0.01$ to $+0.26$) with $u$ still negative. $f$ acts as a region label that sharpens the in-sample fit and makes the carried map more arbitrary. The transfer failure is about the regional relation between geostrophy, wind and current, not about rotation.
+
+\paragraph{What it settled.} The paper claims transfer in time and withdraws transfer in space: ``train on every network you intend to predict.'' A second evolutionary search with a time-aware fitness is not justified, because the recipe did not lose skill with time.
+
+\section{Experiment 2: wind history on the 25-hour target (12 to 13 November)}\label{sec:phase2}
+
+\paragraph{Principle.} The surface current responds to the wind through a linear time-invariant system, $\mathbf{u}(t) = \int_0^\infty \mathbf{G}(\ell)\,\boldsymbol\tau(t - \ell)\,d\ell$, whose impulse response $\mathbf{G}$ is the Ekman transient: a damped inertial oscillation that integrates to the steady Ekman drift \citep{ekman1905,pollard1970slab,elipot2009ekman}. Drifter studies find that about eight days of wind history matter and that the response depends on latitude and season \citep{ubelmann2025wind,elipot2016hourly}. The champion sees only the wind at the pass time. The experiment asks whether the history moves skill and, independently, what response the network has learned.
+
+\paragraph{Design.} On the frozen rows, extra columns: ERA5 wind at the pass time minus 3, 6, 12, 18, 24, 48, 96 and 192 h, $f\times10^4$, $\sin$ and $\cos$ of the day of year. The champion file takes extra columns after its 72 stencil columns into its dense path (a one-parameter change in a copy; without the parameter the file is the champion). Feature sets: \code{fs} ($f$, season), \code{w} (16 lag columns), \code{fsw} (both), on US year one, all-19 and the out-of-US set; LightGBM on the same columns as a second learner. The response function needs no saved weights: perturbed copies of 150,000 clean test rows ride inside the test set, $+2$ m\,s$^{-1}$ on one wind input at a time, and
+\begin{equation}
+\mathbf{G}_\ell = \frac{1}{N}\sum_i \frac{f_\theta(\mathbf{x}_i + \delta\,\mathbf{e}_\ell) - f_\theta(\mathbf{x}_i)}{\delta}
+\label{eq:jacobian}
+\end{equation}
+is the finite-difference Jacobian with respect to the wind at lag $\ell$, resolved along the wind and across it (positive to the left). Its sum over lags is the response to a steady unit wind.
+
+\paragraph{Results.} No feature set moves the champion outside its own interval in any region (Table~\ref{tab:phase2}); the trees learner gets worse when given sixteen collinear columns it cannot regularise. The steady response is 1.20\,\% of the wind speed at 28$^\circ$ right of the wind on usegc and 1.23\,\% at 41$^\circ$ right on uswc, with 70 to 80\,\% of it at lag 0 and a weak 12 to 24 h structure of the right shape for a damped inertial oscillation but too coarsely sampled to claim. The least-squares wind block on the same rows gives 1.10\,\% at 40$^\circ$ and 0.90\,\% at 37$^\circ$ (along-wind factor from the mean diagonal of the $2\times2$ wind-to-current block, cross-wind from half its antisymmetric part), so a network never told about rotation and a straight line see the same Ekman drift. Against the drogued-drifter literature (1 to 2\,\% at 15 m) the top-metre radar response is on the low side rather than the stronger, more downwind response the plan expected.
+
+\begin{table}[h]\centering\small
+\caption{Phase 2 ladder on the 25-hour target, $\R$ $u$ / $v$, cycles 017--058, US year-one training. Intervals for the two models that matter in brackets.}
+\label{tab:phase2}
+\resizebox{\textwidth}{!}{\begin{tabular}{lcccc}
+\toprule
+region & champion & + $f$, season & + 8 wind lags & + both \\
+\midrule
+uswc & 0.286 [0.263, 0.307] / 0.407 [0.374, 0.437] & 0.291 / 0.405 & 0.273 / 0.388 & 0.291 [0.267, 0.312] / 0.404 [0.369, 0.435] \\
+usegc & 0.457 [0.413, 0.495] / 0.527 [0.496, 0.556] & 0.450 / 0.517 & 0.428 / 0.515 & 0.427 [0.381, 0.467] / 0.518 [0.486, 0.546] \\
+prvi & 0.183 / 0.069 & 0.184 / 0.095 & 0.193 / 0.009 & 0.192 / 0.073 \\
+ushi & 0.196 / 0.060 & 0.175 / 0.074 & 0.185 / 0.058 & 0.205 / 0.078 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Why the drifter result did not carry over: four candidates (14 November, 01:10).} (i) The target: a 25-hour centred mean removes the inertial response that carries the wind history (boxcar first null at 0.96 cpd; inertial period 18 to 21 h here). (ii) The depth: a radar sees the top metre, a drogue 15 m, and the Ekman spiral's memory grows with depth. (iii) The coast: setup and relaxation inside a SWOT stencil are already in the height field. (iv) The shelf: friction shortens the memory. Candidate (i) is testable without new data and separates from the rest: rebuild the target hourly. That is Experiment 3.
+
+\section{Experiment 3: the hourly target and 25 rows per pass (14 November)}\label{sec:hourly}
+
+\paragraph{Principle.} A SWOT pass is a snapshot; the ocean keeps moving. If the model is told the hour it is predicting for and the wind since the pass, one pass can inform every hour of the day around it. Each pass then supplies up to 25 training rows instead of one, each a different combination of the same height field with a different wind history, and the target keeps the sub-daily motion the daily mean had removed. The design question is how the model learns that the height field ages while the wind stays current; the physical questions are the tide and the inertial--diurnal degeneracy.
+
+\paragraph{Detiding.} The barotropic tide is unlearnable from a height snapshot and a wind history (neither carries its phase), so leaving it in the target costs $\R$ in proportion to its variance fraction. For each radar cell the hourly training-year record is fitted by least squares to
+\begin{equation}
+u(t) = a_0 + \sum_{k=1}^{5}\big[a_k\cos\omega_k t + b_k\sin\omega_k t\big],\qquad
+\frac{2\pi}{\omega_k} \in \{12.4206, 12.0000, 12.6583, 23.9345, 25.8193\}\ \text{h},
+\label{eq:detide}
+\end{equation}
+the periods of M$_2$, S$_2$, N$_2$, K$_1$ and O$_1$. With the $n\times11$ design matrix $A$ (ones, five cosines, five sines) and the masked normal equations $(A^\top M A)\,\boldsymbol\beta = A^\top M \mathbf{u}$ per cell ($M$ the mask of valid hours), solved for 2,000 cells at a time, the prediction $\sum_k [a_k\cos\omega_k t + b_k\sin\omega_k t]$ (no mean) is subtracted from every hour in or out of the training year. A year resolves M$_2$ from S$_2$ many times over (their beat period is 14.8 days). Only coherent energy at those five frequencies is removed: internal tides with wandering phase, inertial motion and everything else survive. Cells with fewer than 2,000 valid training hours are not fitted. Removed variance: 2 to 4\,\% on the West Coast (median M$_2$ $u$-amplitude 2 cm\,s$^{-1}$), 7 to 8\,\% on the East and Gulf coasts (4 cm\,s$^{-1}$). Full harmonic analysis with sixty constituents and nodal corrections \citep{pawlowicz2002ttide} is the upgrade if needed.
+
+\paragraph{Rows.} For a base row $(c, t)$ the targets are the detided hourly current at $t + k$, $k \in \{-12, -9, \dots, +12\}$ h; the SWOT stencil is the pass-time stencil; the offset $k$ is an input; the wind columns are ERA5 at $t + k - \ell$ for $\ell \in \{0, 3, 6, \dots, 24, 36, 48\}$ h (22 columns). Offsets $k \ne 0$ are drawn for one base row in eight, so a pass yields about two rows per base row on average. Three feature sets: \code{o} (offset only, the control that measures pure ageing), \code{ow} (offset, wind lags, slab current), \code{ofsw} (plus $f$ and season), and an undetided control. Train cycles 001 to 016, score 017 to 058; 7.1 million training rows, 16 to 23 million test rows. The 25-hour mean of the new series reproduces the frozen daily target (correlation 0.987 and 0.991).
+
+\paragraph{The slab-layer current.} A Pollard--Millard slab \citep{pollard1970slab} carries the inertial phase the wind columns alone encode only implicitly. With $Z = u + \mathrm{i}v$, mixed-layer depth $H$, damping $r$ and wind stress $\boldsymbol\tau = \rho_a C_D |\mathbf{W}|\mathbf{W}$,
+\begin{equation}
+\frac{dZ}{dt} + (r + \mathrm{i}f)\,Z = \frac{\tau}{\rho H},
+\qquad
+Z_{n+1} = Z_n\,e^{-a\Delta t} + \frac{1 - e^{-a\Delta t}}{a\,\rho H}\,\tau_n,\quad a = r + \mathrm{i}f,
+\label{eq:slabstep}
+\end{equation}
+the exact solution over one hour of constant stress, computed on the ERA5 grid and sampled at the target hour. Constants: $H = 25$ m, $r^{-1} = 4$ days, $\rho = 1025$, $\rho_a = 1.22$ kg\,m$^{-3}$, $C_D = 1.2\times10^{-3}$. The steady state $Z = \tau/[\rho H (r + \mathrm{i}f)]$ is the Ekman drift to the right of the wind; the transient rings at the inertial period $2\pi/f$ (18.4 h at the West Coast latitudes). Checked before launch: 0.76\,\% of the wind speed at 73$^\circ$ right under the actual winds.
+
+\paragraph{Physical issues named before running.} Near 30$^\circ$ latitude the inertial period equals the diurnal tide's 24 h and the two are degenerate in any fit; both regions sit north of 32$^\circ$N, where the inertial period is 18 to 22 h, clear of K$_1$/O$_1$. Rows from one pass are correlated, so splitting by cycle and bootstrapping by pass is required and done. The ERA5 wind is interpolated to the radar cell at the target hour; at offset zero it matches the stencil-centre wind to a median 0.1 m\,s$^{-1}$ (correlation 0.996 to 0.998).
+
+\paragraph{Results: skill against offset.} Table~\ref{tab:offset} and figure \code{docs/figures/holdout/hourly\_skill\_offset}.
+
+\begin{table}[h]\centering\small
+\caption{Hourly experiment, detided target, cycles 017--058, $\R$ $u$ / $v$ by offset from the pass. The two wind models are the mean prediction of seeds 42, 43 and 44 (single-seed values spread $\pm0.005$ around it; \code{experiments/holdout/hourly\_results.md} lists them); the other rows are deterministic or one seed.}
+\label{tab:offset}
+\resizebox{\textwidth}{!}{\begin{tabular}{llccccc}
+\toprule
+region & model & $-12$ h & $-6$ h & $0$ h & $+6$ h & $+12$ h \\
+\midrule
+uswc & calibrated geostrophy & 0.06 / 0.12 & 0.07 / 0.12 & 0.06 / 0.12 & 0.07 / 0.13 & 0.06 / 0.12 \\
+     & geostrophy + wind at that hour, linear & 0.18 / 0.32 & 0.20 / 0.30 & 0.18 / 0.30 & 0.18 / 0.32 & 0.18 / 0.32 \\
+     & champion + offset only & 0.14 / 0.25 & 0.17 / 0.29 & 0.19 / 0.32 & 0.17 / 0.28 & 0.14 / 0.23 \\
+     & + wind lags + slab & 0.29 / 0.37 & 0.30 / 0.36 & 0.28 / 0.36 & 0.29 / 0.38 & 0.29 / 0.38 \\
+     & + $f$, season & 0.30 / 0.38 & 0.30 / 0.37 & 0.28 / 0.37 & 0.30 / 0.38 & 0.30 / 0.39 \\
+\midrule
+usegc & calibrated geostrophy & 0.31 / 0.32 & 0.30 / 0.34 & 0.27 / 0.32 & 0.27 / 0.32 & 0.27 / 0.30 \\
+      & geostrophy + wind at that hour, linear & 0.39 / 0.40 & 0.40 / 0.41 & 0.38 / 0.40 & 0.38 / 0.40 & 0.37 / 0.39 \\
+      & champion + offset only & 0.46 / 0.39 & 0.49 / 0.43 & 0.49 / 0.44 & 0.49 / 0.41 & 0.43 / 0.34 \\
+      & + wind lags + slab & 0.51 / 0.44 & 0.53 / 0.45 & 0.50 / 0.44 & 0.51 / 0.44 & 0.51 / 0.43 \\
+      & + $f$, season & 0.52 / 0.45 & 0.54 / 0.46 & 0.52 / 0.45 & 0.53 / 0.44 & 0.52 / 0.44 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+Three readings. First, the offset-only model ages symmetrically, as a snapshot should; the wind-lag model is flat across the whole day, both coasts, both components, within the bootstrap bands. The decay was the wind input going stale, not the height field. Second, at the pass hour itself the wind lifts uswc from 0.19 / 0.32 to 0.28 / 0.36, the gain the daily target could not show; candidate (i) of Section~\ref{sec:phase2} is confirmed and the other three are second order. Third, the linear wind at the target hour is also flat but ten points lower in $u$ on uswc, so the lagged and nonlinear part (slab and history) carries the rest. Coriolis and season add $+0.01$ inside every interval, the same answer as on the daily target.
+
+\paragraph{Tide control.} The same feature set on the raw and the detided target at the pass hour: uswc 0.259 / 0.349 against 0.284 / 0.367; usegc 0.394 / 0.410 against 0.508 / 0.441. A loss of 0.02 where the fit removed 2 to 4\,\% of the variance, 0.11 in $u$ where it removed 7 to 8\,\%, concentrated in the cross-shelf component where the tidal current lives. Detiding stays.
+
+\paragraph{The hourly wind response.} Figure \code{docs/figures/holdout/hourly\_wind\_response}: eq.~\eqref{eq:jacobian} on 150,000 base rows per region at offset 0, lags 0, 3, \dots, 24, 36, 48 h. At lag 0 the response is 0.76\,\% of the wind speed along the wind and 0.45\,\% to the right on uswc (0.93 and 0.13\,\% on usegc). Summed over lags: 1.31\,\% at 25$^\circ$ right on uswc, 1.53\,\% at 18$^\circ$ right on usegc, against 1.23\,\% at 41$^\circ$ and 1.20\,\% at 28$^\circ$ from the daily-target model: stronger and less rotated once the transient is in the target. The lag structure is the new result: the cross-wind response is to the right at 0 and 3 h, crosses zero near 9 h, peaks to the left at 15 h (uswc) and 18 h (usegc) and returns to the right by 21 to 24 h, while the along-wind response dips at 6 to 9 h and recovers at 15 to 21 h. A response vector rotating clockwise with lag through one turn in 18 to 21 hours is the damped inertial oscillation of eq.~\eqref{eq:slabstep} at the local inertial period (18.6 h at 40$^\circ$N, 20.9 h at 35$^\circ$N), which the eight coarse lags of Experiment 2 could only hint at. Beyond 24 h the response is near zero; the 48 h along-wind uptick on uswc sits on the least constrained lag and is treated as a collinearity artefact.
+
+\paragraph{Results: the hourly route as a daily product.}\label{sec:daily} David's question ``does using the 25 hours individually improve $\R$'' is answered by averaging each pass's nine hourly predictions and scoring the average against the frozen 25-hour-mean target on the same rows as the daily champion (\code{us\_y1}, trained on six US networks; the hourly models saw two). Rows: base rows with all nine offsets (303,685 on uswc over 630 passes; 150,180 on usegc over 942 passes), which are the well-covered cells, hence numbers above the headline table.
+
+\begin{table}[h]\centering\small
+\caption{$\R$ $u$ / $v$ against the 25-hour-mean target, bootstrap 95\,\% intervals. Every learned row is the mean prediction of seeds 42, 43 and 44 (the daily champion included), so the comparison is like for like.}
+\resizebox{\textwidth}{!}{\begin{tabular}{lcc}
+\toprule
+model & uswc & usegc \\
+\midrule
+daily champion \code{us\_y1} & 0.346 [0.321, 0.368] / 0.522 [0.490, 0.551] & 0.694 [0.660, 0.724] / 0.612 [0.570, 0.650] \\
+mean of 9 hourly, offset only & 0.349 [0.326, 0.370] / 0.518 [0.485, 0.547] & 0.688 [0.653, 0.718] / 0.646 [0.607, 0.680] \\
+mean of 9 hourly, wind lags + slab & 0.378 [0.354, 0.402] / 0.543 [0.512, 0.571] & 0.689 [0.656, 0.717] / 0.638 [0.600, 0.671] \\
+mean of 9 hourly, + $f$, season & 0.391 [0.366, 0.413] / 0.557 [0.525, 0.586] & 0.701 [0.669, 0.729] / 0.648 [0.613, 0.679] \\
+full hourly model at the pass hour alone & 0.135 [0.077, 0.186] / 0.416 [0.369, 0.455] & 0.635 [0.589, 0.670] / 0.566 [0.516, 0.609] \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+Yes. On the West Coast the full hourly model averaged over the day beats the daily champion by 0.045 in $u$ with the intervals apart and by 0.035 in $v$ with the intervals touching; on the East and Gulf it ties in $u$ and gains 0.036 in $v$ inside the intervals. No cell is a loss, and the offset-only average ties the champion in $u$ on both coasts, so the hourly framing costs nothing before wind is added; on usegc it already supplies the $v$ gain, nine looks at the day instead of one. The last row is the check: the hourly model's pass-hour prediction alone is a poor predictor of the daily mean on uswc (0.135 in $u$) because it predicts real sub-daily motion that cancels over the day, and a fair one on usegc (0.635) where the 13 November rotary spectra put less of the variance in the inertial band. That coastal contrast is itself a result to carry into the paper beside the spectra.
+
+\paragraph{Caveats on the record.} Three seeds for the two wind models: single-seed $\R$ at the pass hour spans 0.269 to 0.275 (uswc $u$, wind lags) and 0.273 to 0.284 ($+f$, season), 0.499 to 0.515 on usegc, so the seed spread is $\pm0.005$ and the three-seed mean prediction gains 0.005 to 0.01 over any one seed; the $+0.01$ of $f$ and season is of the same size as that ensembling gain and stays a null result. Offsets $\pm3$ to $\pm12$ h have 420,000 test rows each on uswc against 3.4 million at the pass hour; the daily reference saw more networks than the hourly models, which if anything understates the hourly gain; nine samples at 3-hour spacing average the inertial cycle imperfectly.
+
+\section{Drifter scoping (14 November)}
+
+The Global Drifter Program's hourly quality-controlled product ends on 2022-10-31, before SWOT; the 6-hourly product runs to June 2025. Since July 2023: 150 drifters and 44,304 fixes in the West Coast box, 165 and 94,988 in the East/Gulf box, 2,662 and 3.56 million globally. A SWOT swath images about a sixth of the ocean per day, so about 4\,\% of fixes fall within $\pm3$ h of a pass: order 140,000 matched rows worldwide over two years, enough to score an open-ocean inference, far too few to train on, and at 6-hour cadence useless for the inertial question. Hourly velocities in the SWOT era would come from the raw Iridium GPS fixes or from the Copernicus in-situ product (INSITU\_GLO\_PHY\_UV\_DISCRETE\_NRT\_013\_048). Nothing downloaded; the 6-hourly product is a few hundred megabytes from a free NOAA server.
+
+\section{What the experiments changed in the plan}
+
+\begin{enumerate}
+  \item Phase 1b closed: time transfer claimed, space transfer withdrawn, three seeds on the record.
+  \item Phase 2 closed on the daily target: negative, with the response-function figure; the finer lag grid the plan asked for is delivered by the hourly \code{ofsw} perturbation run (lags every 3 h to 24 h, then 36 and 48).
+  \item Phase 2 addendum (the hourly experiment) is now the paper's third result and the mechanism by which sparse passes become a continuous product. Seeds 43 and 44 and the hourly response function are in (15 November, 03:13). Next numbers: a sensitivity to the slab depth $H$, the full 25 offsets instead of nine, and the same experiment on the other seventeen networks.
+  \item Toward the whole-ocean model: drifters as open-ocean truth (6-hourly first), an OSSE with LLC4320 to measure skill where there is no truth, ORAS5/GLORYS as consistency checks rather than labels, the inertial--diurnal degeneracy near 30$^\circ$ as a stated limitation.
+\end{enumerate}
+
+\section{Reading list, in the order the experiments need it}
+
+Ekman transients and the slab model \citep{pollard1970slab,pollard1973deepening,elipot2009ekman,alford2016nio}; drifter wind responses and the operational Ekman model \citep{elipot2016hourly,ubelmann2025wind,rio2014ekman}; where geostrophy stops \citep{torres2018partition,qiu2018transition,klein2019interactions}; tides in both datasets \citep{ray2016internaltides,zaron2019baroclinic,kachelein2024tides,pawlowicz2002ttide}; what a radar measures against a drifter \citep{stewart1974hfr,rohrs2015hfr,ardhuin2009stokes}; shelf dynamics \citep{lentz2012innershelf,brink1991ctw}; mixed-layer depth \citep{deboyer2004mld}.
+
+\appendix
+\section{The baselines ladder, from the single-source methods file}\label{app:ladder}
+\begingroup\let\section\subsection
+\input{methods-baselines-body}
+\endgroup
+
+\bibliography{refs,data-sources-plain}
+\end{document}

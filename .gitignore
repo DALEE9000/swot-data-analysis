@@ -182,7 +182,17 @@ CLAUDE.md
 /archive/
 /frames/
 /animations/
-/papers/
+/papers/*
+# the manuscript sources are tracked; everything else under papers/ (PDF library, notes) stays local
+!/papers/manuscript/
+/papers/manuscript/*.log
+/papers/manuscript/*.aux
+/papers/manuscript/*.bbl
+/papers/manuscript/*.blg
+/papers/manuscript/*.out
+/papers/manuscript/*.toc
+/papers/manuscript/methods-baselines-body.tex
+/papers/manuscript/data-sources-plain.bib
 /SWOT_L3/
 /cache/
 *.nc

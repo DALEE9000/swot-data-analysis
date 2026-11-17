@@ -119,6 +119,8 @@ pkill -f "streamlit run"                 # stop by name
 
 `docs/replication.md` walks three levels: regenerate the figures from tracked results (minutes), rebuild the data and retrain the champion from public sources (days), and rerun the LLM-guided search (not replayable; audit trail in `database.jsonl`). Exact package versions: `requirements-lock.txt`. Data archive manifest with SHA-256: section 2.7 there. A visual map of the whole chain, sources to figures, is `docs/pipeline-map.md`.
 
+Manuscript scaffold and the dated experimental briefing (LaTeX, with the mathematics): `papers/manuscript/`; `bash papers/manuscript/build.sh` builds `main.pdf` and `briefing.pdf` and pulls the baselines equations from `docs/methods-equations/`.
+
 ---
 
 ## File hierarchy
@@ -162,6 +164,7 @@ SWOT-data-analysis/
 │       └── regions/                # Region-overview maps
 │
 ├── papers/                         # PDF library + NOTES.md; handbooks/ holds the SWOT L3 product docs
+│   └── manuscript/                 # Paper scaffold (main.tex), experimental briefing (briefing.tex), refs.bib; build: bash papers/manuscript/build.sh
 ├── orbit_data/                     # SWOT orbit shapefiles (sph_calval_swath.zip, sph_science_swath.zip)
 ├── ne_10m_bathymetry_all/          # Natural Earth bathymetry shapefiles for cartopy plots
 │
@@ -503,6 +506,8 @@ The supervised-learning targets: HFR `u`/`v` interpolated onto each pass's SWOT 
 | `phase2_features.py` | Phase 2 feature matrices on the frozen holdout rows: ERA5 10 m wind at 8 lags (3 h to 8 d) before each SWOT observation, Coriolis parameter, sin/cos of day of year → `experiments/holdout/<rid>_p2.npz` (19 columns per row; no download) |
 | `phase2_candidate.py` | The evolve champion `gen031_00` verbatim plus one addition: columns after `n_stencil_cols` are per-row scalars routed to the dense path; what `holdout_eval.py --train --featset` runs |
 | `phase2_trees_candidate.py` | LightGBM learner (CPU build) with the evolve-candidate interface, one regressor per component, early stopping on the last 10 % of time-ordered rows; `holdout_eval.py --learner trees` runs it on the same data as the champion (folder suffix `@trees`) |
+| `hourly_targets.py` | Hourly radar targets for the holdout rows: reads the raw 6 km hourly archive on Z: at the radar cells the rows touch, fits M2 S2 N2 K1 O1 per cell on the training year, writes `experiments/holdout/<rid>_hourly.npz` (raw and tidal series on an hourly axis, row-to-cell index; no download) |
+| `hourly_eval.py` | The hourly experiment (25 rows per pass): same stencil rows, target = detided radar current at −12..+12 h from the pass every 3 h, wind lags 0-48 h and a Pollard-Millard slab current recomputed at the target hour, offset as an input; trains the champion copy on uswc+usegc year one (`--train o|ow|ofsw`, `--target raw` for the undetided control, `--pert` for the response rows), scores by offset with block bootstrap (`--score`), draws `hourly_skill_offset`, `hourly_tide_effect`, `hourly_wind_response` (`--figures`) |
 | `fetch_hfrnet.py` | US HFRNet 6 km gap fill and extension from NOAA NCEI's HF radar RTV archive (`ncei.noaa.gov/data/oceans/ioos/hfradar/rtv`, hourly files 2006-present, free; the Scripps THREDDS server is retired and NDBC/ERDDAP keep three months): fetches calendar months with no local hours plus everything after the last local hour as per-hour files in the archive's own naming, SIO product preferred over NDBC, never duplicates an hour; `--go` to fetch, otherwise prints the plan |
 | `animate_hfr_swot.py` | HFR daily mean (left) and SWOT L3 geostrophic current on that day's passes (right), one frame per calendar day, per region and per continent (`--continents north_america,europe,australia`); builds a daily-mean radar cache (`--build-daily`, rebuilt per year when the archive gets newer files) under `HFR_ANIM_ROOT/hfr_daily/`, frames under `HFR_ANIM_ROOT/frames/` → `docs/figures/hfr_animations/<name>_hfr_swot.mp4` |
 | `animate_hfr_regions.py` | Daily-mean speed + arrow animation of every HFR region's full hourly archive (`--coverage` prints the day-coverage table in `docs/model-data.md` from the daily cache under `HFR_ANIM_ROOT/hfr_daily/`) (19 regions: US HFRNet 6 km, European node, IMOS) → `docs/figures/hfr_animations/<region>_daily.mp4`; frames cached under `archive/hfr_anim_frames/` (deleted 2026-11-08 to free C:; re-rendering recreates them), resumable |
@@ -559,6 +564,12 @@ python scripts/holdout_eval.py --train all           # eleven retrains of the ch
 python scripts/holdout_eval.py --train us_y1,all_y1,not_us_y1 --seeds 43,44   # extra seeds; the scorer averages every pred_seed*.npz
 python scripts/holdout_eval.py --train us_wo_uswc_y1,us_wo_usegc_y1,us_wo_prvi_y1,us_wo_ushi_y1   # leave-one-region-out within the US
 python scripts/holdout_eval.py --score --figures     # experiments/holdout/results.{json,md}, docs/figures/holdout/
+python scripts/hourly_targets.py uswc usegc          # hourly detided targets, experiments/holdout/<rid>_hourly.npz (1-2 h per region, reads Z:)
+python scripts/hourly_eval.py --train o; python scripts/hourly_eval.py --train ow; python scripts/hourly_eval.py --train ofsw --pert   # 25 rows per pass, three feature sets
+python scripts/hourly_eval.py --train ofsw --target raw   # undetided control
+python scripts/hourly_eval.py --train ow --seed 43        # extra seeds (43, 44 done for ow and ofsw); --score and --daily average every pred_seed*.npz
+python scripts/hourly_eval.py --score --figures     # experiments/holdout/hourly_results.{json,md}, docs/figures/holdout/hourly_*
+python scripts/hourly_eval.py --daily               # average the hourly predictions per pass, score as a daily product -> experiments/holdout/hourly_daily.{json,md}
 ```
 Logs: `SWOT_L3/science/fetch_hfr_eu_full_{A,B,C}.log`, `fetch_hfr_imos_full.log`, `fetch_hfrnet_{A,B}.log`, `download_ext_{1..8}.log`. About 65 s per granule per SFTP worker (11 MB granules; AVISO is slow, not the disk), 184 passes per cycle over the 19 regions, so 42 cycles take about a day and a half with four workers.
 

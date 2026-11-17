@@ -183,6 +183,15 @@ response-function figure.
 
 ---
 
+### Phase 2 addendum (2026-11-14): the hourly experiment
+
+The 25-hour target averages away the inertial response that carries wind history, which is the leading explanation for the Phase 2 negative (research log 2026-11-14 01:10). Added and running:
+
+- [x] Hourly detided targets at the radar cells the holdout rows touch (`scripts/hourly_targets.py`)
+- [x] 25 rows per pass (every 3 h, −12 to +12), wind lags and slab current at the target hour, offset as an input; champion copy on uswc + usegc year one, three feature sets plus an undetided control (`scripts/hourly_eval.py`)
+- [x] Skill against offset, tide effect and hourly wind response figures (2026-11-14: wind at the target hour makes skill flat across ±12 h; the hourly response rotates clockwise through one inertial period, 1.3 to 1.5 % of wind speed at 18 to 25° right; f and season add +0.01 inside the intervals)
+- [x] Drifter scoping (2026-11-14, research log 14:55; no download yet): Global Drifter Program hourly drifters inside SWOT swaths 2023-2026, data volume before any download
+
 ## Phase 3 — Write the preprint (2026-12-16 to 2027-01-20)
 
 Three figures carry the paper: the baselines table (Phase 1), the stacked
