@@ -93,6 +93,20 @@ One frame per calendar day with data: daily-mean speed (cmocean `speed`,
 | `<continent>_hfr_swot.mp4` | Same two panels over one map per continent (`north_america`, `europe`, `australia`), every region drawn on it |
 | `<name>_hfr_swot_since2023.mp4` | The same movies cut to 2023-04-01 onward (calval and science SWOT era), since the full-record films spend their first 3 minutes before SWOT existed |
 
+## methods/ — schematic diagrams of each method
+
+Drawn by `scripts/methods_diagrams.py` from the methods' constants, no data
+read; prose explanations in `docs/figures/methods/README.md`.
+
+| File | Shows |
+|---|---|
+| `method_rows` | One training row: the 3 × 3 SWOT stencil (72 columns), engineered block, extra columns by experiment, the champion network, the radar truth |
+| `method_daily_target` | Phase 1: one row per cell per pass against the 25-hour-mean radar current; why the boxcar hides the inertial motion |
+| `method_wind_history` | Phase 2: eight wind lags, f and season as extra columns on the same daily target (null result, physical response) |
+| `method_hourly_target` | Experiment 3: 25 rows per pass, wind window per target hour, slab current, detiding inset |
+| `method_hourly_to_daily` | The nine hourly predictions averaged and scored against the 25-hour target beside the daily champion; the pass-hour check |
+| `method_holdout` | Train on cycles 001-016, score 017-058; continent transfer and leave-one-region-out |
+
 ## regions/ — study-area maps
 
 Made in an earlier session (notebook); no regenerating script tracked.

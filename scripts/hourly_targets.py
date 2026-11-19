@@ -20,7 +20,8 @@ Output experiments/holdout/<rid>_hourly.npz (on Z: through the junction):
 
 Usage:
     python scripts/hourly_targets.py uswc usegc
-Reads HFR_DATA_ROOT/<rid>_6km_Resolution_hourly (Z:). Nothing is downloaded.
+Reads HFR_DATA_ROOT/<rid>_6km_Resolution_hourly (US networks) or the single <rid>_<res>_Resolution_hourly
+folder of an EU/AU network (kept at native resolution, 2026-11-17). Nothing is downloaded.
 """
 from __future__ import annotations
 
@@ -78,13 +79,24 @@ def fit_harmonics(A: np.ndarray, Y: np.ndarray):
     return coef, nfit
 
 
+def archive_folder(rid: str) -> Path:
+    """<rid>_6km_Resolution_hourly where it exists (US), else the one <rid>_<res>_Resolution_hourly folder
+    (the EU/AU archives are regridded at their native resolution: eu_biscay 5 km, au_cof 1 km, ...)."""
+    six = RAW_ROOT / f"{rid}_6km_Resolution_hourly"
+    if six.exists():
+        return six
+    cands = sorted(RAW_ROOT.glob(f"{rid}_*_Resolution_hourly"))
+    assert len(cands) == 1, f"{rid}: expected one archive folder, found {cands}"
+    return cands[0]
+
+
 def build(rid: str) -> Path:
     out = OUT / f"{rid}_hourly.npz"
     if out.exists():
         log(f"{rid}: {out.name} exists, skipping"); return out
     d = np.load(OUT / f"{rid}.npz")
     t, lat, lon, cyc = d["time"], d["lat"], d["lon"], d["cycle"]
-    files = index_folder(RAW_ROOT / f"{rid}_6km_Resolution_hourly")
+    files = index_folder(archive_folder(rid))
     with xr.open_dataset(files[-1][2]) as ds:
         glat, glon = ds["lat"].values, ds["lon"].values
     yi = np.clip(np.round((lat - glat[0]) / (glat[1] - glat[0])).astype(np.int32), 0, len(glat) - 1)

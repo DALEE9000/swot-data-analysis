@@ -24,7 +24,11 @@ and the paper scaffold in `papers/manuscript/main.pdf`.
    only the pass-time wind decays by a quarter to a third. The decay of a
    snapshot was never the height field going stale; it was the wind input.
    This is the mechanism by which sparse passes become a continuous product,
-   and the reason the whole-ocean plan is feasible.
+   and the reason the whole-ocean plan is feasible. Two numbers not to
+   confuse: nine target hours per pass (the offsets −12 to +12 h every 3 h,
+   one row each; 25 in the full design) and eleven wind lags per row (0 to
+   24 h every 3 h, then 36 and 48 h, measured back from that row's own
+   target hour, two columns each).
 
 3. **The hourly route improves the daily number.** Averaging the nine hourly
    predictions of a pass and scoring against the 25-hour mean, three-seed
@@ -34,7 +38,12 @@ and the paper scaffold in `papers/manuscript/main.pdf`.
    model's pass-hour prediction alone predicts the daily mean poorly on the
    West Coast (u 0.14) and well on the East and Gulf (0.64): the West Coast
    surface current has far more sub-daily motion that cancels over the day,
-   which matches the rotary spectra.
+   which matches the rotary spectra. Checked 17 November with every hourly
+   model retrained on the daily champion's six US networks: all midlatitude
+   numbers reproduce within 0.01 (uswc 0.39/0.56 against 0.35/0.52; usegc
+   0.70/0.65 against 0.69/0.61). On the two tropical networks (Puerto Rico,
+   Hawaii) every model is weak (u 0.1-0.2, v near zero) and the wind history
+   adds at most 0.04 at the pass hour: the latitude limit of the result.
 
 4. **Transfer in time holds; transfer in space does not.** Trained on year
    one, the recipe keeps its skill over two more years on 13 of 16 regions
@@ -115,12 +124,20 @@ equations stay single-sourced in `docs/methods-equations/`. Build with
 
 ## Open items
 
-- Sensitivity of the hourly result to the slab depth H and to using all 25
-  offsets instead of nine.
-- The hourly experiment on the other seventeen networks (needs hourly targets
-  per region; usegc-sized builds need the archive drive).
+- Slab depth H = 10/50 m gives the same R² as 25 m to two decimals
+  (17 November): with the damping fixed the slab current is exactly
+  proportional to 1/H and the per-column standardisation removes the factor,
+  so depth cannot matter in this formulation. The damping time r (1, 4,
+  10 days) is the variant that changes the filter's memory and phase; run
+  17 November: a factor of ten either way moves skill by at most 0.02
+  (seed-spread size), so the wind lags already carry the inertial filter
+  and the slab column is a convenience, not information. Slab settled. All 25 offsets instead of nine (done 17 November):
+  every shared entry within 0.01 of the nine-offset run, the hours between
+  them on a smooth line, the daily gain unchanged (uswc 0.388 / 0.564
+  against 0.347 / 0.529); the nine-offset design is the reported one.
+- The hourly experiment on the other thirteen networks (needs hourly targets
+  per region; the archive folders are named by native resolution, so
+  `hourly_targets.py` needs a per-region folder map).
 - Drifter route: 6-hourly GDP product (free, a few hundred MB) for scoring an
   open-ocean inference, or hourly velocities derived from raw fixes.
 - OSSE with LLC4320 for skill where there is no truth.
-- A daily model trained on uswc + usegc alone, as the exact control for the
-  averaged-hourly comparison.

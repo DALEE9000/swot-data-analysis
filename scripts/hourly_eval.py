@@ -37,7 +37,46 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import holdout_eval as he  # noqa: E402
 
 REPO, OUT, FIG = he.REPO, he.OUT, he.FIG
-REGIONS = ["uswc", "usegc"]
+REGION_SETS = {"us2": ["uswc", "usegc"], "us6": he.CONTINENTS["us"],   # us6 = the daily champion's training set
+               "eu6": he.CONTINENTS["eu"], "au7": he.CONTINENTS["au"]}   # 17 Nov: the other two continents
+DAILY_REFS = {"us2": "us_y1", "us6": "us_y1", "eu6": "eu_y1", "au7": "au_y1"}   # daily champion of each set
+REGION_KEY = "us2"
+REGIONS = list(REGION_SETS["us2"])
+TAG = ""                 # "" for us2 (the 14 Nov artefacts), "_us6" otherwise: suffix on run dirs, results, figures
+
+
+def set_regions(tag: str) -> None:
+    global TAG, REGION_KEY, DAILY_REF
+    REGIONS[:] = REGION_SETS[tag]
+    REGION_KEY = tag
+    DAILY_REF = DAILY_REFS[tag]
+    TAG = "" if tag == "us2" else f"_{tag}"
+
+
+BUDGET_SCALE = 1.0       # multiplies the champion's training time budget (the 25-offset rows need more epochs)
+
+
+def configure(regions: str, slab_h: float, offsets: str, budget_scale: float = 1.0, slab_r_days: float = 4.0) -> None:
+    """Set the variant: region set, slab depth and damping time, offset grid. Every non-default choice is appended
+    to TAG so its run dirs, results and figures never collide with the 14 Nov (us2, H=25 m, r=1/(4 d), nine
+    offsets) artefacts. Note (17 Nov): with r fixed the slab current is exactly proportional to 1/H and the
+    per-column standardisation removes that factor, so --slab-h alone cannot change a model; --slab-r can."""
+    global SLAB_H, SLAB_R, SLAB_R_DAYS, SUB, BUDGET_SCALE
+    set_regions(regions)
+    SLAB_H = float(slab_h)
+    OFFSETS[:] = list(range(-12, 13, 3)); SUB = 8
+    if SLAB_H != 25.0:
+        globals()["TAG"] += f"_H{SLAB_H:g}"
+    SLAB_R_DAYS = float(slab_r_days); SLAB_R = 1 / (SLAB_R_DAYS * 86400)
+    if SLAB_R_DAYS != 4.0:
+        globals()["TAG"] += f"_r{SLAB_R_DAYS:g}d"
+    if offsets == "all":
+        OFFSETS[:] = list(range(-12, 13))
+        SUB = 16             # 25 offsets on 1/16 of the base rows: 2.5x the base rows, against 2x for nine on 1/8
+        globals()["TAG"] += "_all25"
+    BUDGET_SCALE = budget_scale
+
+
 OFFSETS = list(range(-12, 13, 3))
 LAGS = [0, 3, 6, 9, 12, 15, 18, 21, 24, 36, 48]
 WIND = [f"w_{c}_lag{h}h" for c in "uv" for h in LAGS]
@@ -49,6 +88,7 @@ PERT_ROWS = 150_000
 PERT_DELTA = 2.0
 # slab model: mixed-layer depth, damping time, densities, drag
 SLAB_H, SLAB_R, RHO_W, RHO_A, CD = 25.0, 1 / (4 * 86400), 1025.0, 1.22, 1.2e-3
+SLAB_R_DAYS = 4.0
 OMEGA = 7.2921e-5
 log = he.log
 
@@ -169,7 +209,7 @@ def scorable(r: dict) -> np.ndarray:
 
 
 def vdir_of(featset: str, target: str) -> Path:
-    return OUT / (f"hourly_{featset}" + ("_raw" if target == "raw" else ""))
+    return OUT / (f"hourly_{featset}" + ("_raw" if target == "raw" else "") + TAG)
 
 
 def build_data(featset: str, target: str, pert: bool) -> None:
@@ -177,6 +217,8 @@ def build_data(featset: str, target: str, pert: bool) -> None:
     Xtr, Ytr, Ttr, Xte, spans, pos = [], [], [], [], {}, 0
     for rid in REGIONS:
         r = region_rows(rid, featset, target)
+        if len(r["Y"]) == 0:   # 17 Nov: eu_gbight / au_cof yield no matched rows; skip them as the scorer does
+            log(f"{vdir.name}/{rid}: no rows, skipped"); continue
         te = r["cycle"] > he.LAST_TRAIN_CYCLE
         Xtr.append(r["X"][~te]); Ytr.append(r["Y"][~te]); Ttr.append(r["time"][~te])
         Xte.append(r["X"][te]); spans[rid] = [pos, pos + int(te.sum())]; pos += int(te.sum())
@@ -228,10 +270,12 @@ def train(featset: str, target: str = "detided", seed: int = 42, pert: bool = Fa
     if pred_path.exists():
         log(f"{vdir.name}: {pred_path.name} exists, skipping"); return pred_path
     if not (vdir / "data.npz").exists():
-        subprocess.run([he.PY, __file__, "--_build_one", featset, target, "1" if pert else "0"],
-                       cwd=REPO, check=True, env=he.ENV)
+        subprocess.run([he.PY, __file__, "--_build_one", featset, target, "1" if pert else "0",
+                        "--regions", REGION_KEY, "--slab-h", str(SLAB_H), "--slab-r", str(SLAB_R_DAYS),
+                        "--offsets", "all" if len(OFFSETS) == 25 else "nine"], cwd=REPO, check=True, env=he.ENV)
     params = dict(json.loads((he.RUN / "candidates" / he.CHAMPION / "params.json").read_text()), seed=seed,
                   n_stencil_cols=len(he.FEATURES) * he.K * he.K)
+    params["time_budget_s"] = params["time_budget_s"] * BUDGET_SCALE
     (vdir / f"params_seed{seed}.json").write_text(json.dumps(params), encoding="utf-8")
     log(f"{vdir.name}: training {he.CHAMPION} copy seed {seed} (budget {params['time_budget_s']:.0f} s)...")
     t0 = time.time()
@@ -270,7 +314,7 @@ def _align(vd: Path, rid: str, r: dict, seed: int | None = None) -> np.ndarray:
     return full
 
 
-DAILY_REF = "us_y1"   # the daily-target champion the averaged hourly predictions are measured against
+DAILY_REF = "us_y1"   # the daily-target champion the averaged hourly predictions are measured against (set_regions)
 
 
 def _seeds(vd: Path) -> list[int]:
@@ -307,6 +351,8 @@ def daily_from_hourly(B: int = 1000) -> dict:
             S = np.zeros((len(ub), 2)); np.add.at(S, inv, A[good]); return S / cnt[:, None]
 
         keep = (cnt == len(OFFSETS)) & np.isfinite(d["Y"][ub]).all(1) & np.isfinite(daily[ub]).all(1)
+        if keep.sum() < 1000:
+            log(f"{rid}: {int(keep.sum())} bases with all offsets, skipped"); continue
         Yd, Yh = d["Y"][ub], avg(r["Y"])
         at0 = good & (r["offset"] == 0)
         models = {DAILY_REF: daily[ub]}
@@ -321,7 +367,7 @@ def daily_from_hourly(B: int = 1000) -> dict:
                                        for ci, c in enumerate("uv")} for name, P in models.items()}
         res["regions"][rid] = reg
         log(f"{rid}: {keep.sum():,} bases with all {len(OFFSETS)} offsets, {reg['n_passes']} passes")
-    (OUT / "hourly_daily.json").write_text(json.dumps(res, indent=1, default=float), encoding="utf-8")
+    (OUT / f"hourly_daily{TAG}.json").write_text(json.dumps(res, indent=1, default=float), encoding="utf-8")
     lines = [f"# Hourly route scored as a daily product (average of the {len(OFFSETS)} hourly predictions, "
              f"cycles 017-058, bases with all offsets; daily reference `{DAILY_REF}`)", ""]
     for rid, reg in res["regions"].items():
@@ -331,7 +377,7 @@ def daily_from_hourly(B: int = 1000) -> dict:
             cells = [f"{reg['vs'][t][name]['u']['r2']:.3f} / {reg['vs'][t][name]['v']['r2']:.3f}" for t in reg["vs"]]
             lines.append(f"| {name} | " + " | ".join(cells) + " |")
         lines.append("")
-    (OUT / "hourly_daily.md").write_text("\n".join(lines), encoding="utf-8")
+    (OUT / f"hourly_daily{TAG}.md").write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
     return res
 
@@ -340,13 +386,17 @@ def score_all(B: int = 1000) -> dict:
     import baselines_eval as be
     be.FEATURES, be.K, be.CENTER = he.FEATURES, he.K, he.K * he.K // 2
     res = {"offsets": OFFSETS, "sub": SUB, "train_regions": REGIONS, "regions": {}}
-    vdirs = sorted(p.parent for p in OUT.glob("hourly_*/data_meta.json") if (p.parent / "pred_seed42.npz").exists())
+    vdirs = sorted(p.parent for p in OUT.glob("hourly_*/data_meta.json") if (p.parent / "pred_seed42.npz").exists()
+                   and json.loads(p.read_text())["train_regions"] == REGIONS
+                   and json.loads(p.read_text())["offsets"] == OFFSETS)
     for rid in REGIONS:
         reg = {"targets": {}}
         for target in ("detided", "raw"):
             r = region_rows(rid, "ofsw", target)      # the widest extras: baselines read wind at the target hour
             te = r["cycle"] > he.LAST_TRAIN_CYCLE
             ok_all = scorable(r)
+            if (te & ok_all).sum() < 1000:
+                log(f"{rid}/{target}: {int((te & ok_all).sum())} scorable test rows, skipped"); continue
             tr = ~te & ok_all
             G = r["X"][:, [he.col("ugos_filtered"), he.col("vgos_filtered")]]
             n_st = len(he.FEATURES) * he.K * he.K
@@ -361,8 +411,12 @@ def score_all(B: int = 1000) -> dict:
                 meta = json.loads((vd / "data_meta.json").read_text())
                 if meta["target"] != target:
                     continue
-                models[f"champion_{meta['featset']}"] = _align(vd, rid, r)
-                seeds[f"champion_{meta['featset']}"] = {sd: _align(vd, rid, r, sd) for sd in _seeds(vd)} if len(_seeds(vd)) > 1 else {}
+                H = meta.get("slab", {}).get("H", 25.0)
+                rd = 1 / (meta.get("slab", {}).get("r_per_s", 1 / (4 * 86400)) * 86400)
+                name = (f"champion_{meta['featset']}" + (f"_H{H:g}" if H != 25.0 else "")
+                        + (f"_r{rd:g}d" if abs(rd - 4) > 1e-6 else ""))
+                models[name] = _align(vd, rid, r)
+                seeds[name] = {sd: _align(vd, rid, r, sd) for sd in _seeds(vd)} if len(_seeds(vd)) > 1 else {}
             blocks = r["cycle"].astype(np.int64) * 1000 + r["pass_idx"]
             tgt = {"n_rows": int((te & ok_all).sum()), "by_offset": {}, "models": list(models)}
             for k in OFFSETS:
@@ -377,14 +431,15 @@ def score_all(B: int = 1000) -> dict:
                 tgt["by_offset"][str(k)] = entry
             reg["targets"][target] = tgt
             log(f"{rid}/{target}: scored {len(models)} models at {len(OFFSETS)} offsets")
-        res["regions"][rid] = reg
-    (OUT / "hourly_results.json").write_text(json.dumps(res, indent=1, default=float), encoding="utf-8")
+        if reg["targets"]:
+            res["regions"][rid] = reg
+    (OUT / f"hourly_results{TAG}.json").write_text(json.dumps(res, indent=1, default=float), encoding="utf-8")
     write_md(res)
     return res
 
 
 def write_md(res: dict) -> None:
-    lines = ["# Hourly experiment: R² by offset from the pass (cycles 017-058, train uswc+usegc year one)", ""]
+    lines = [f"# Hourly experiment: R² by offset from the pass (cycles 017-058, train {'+'.join(REGIONS)} year one)", ""]
     for rid, reg in res["regions"].items():
         for target, tgt in reg["targets"].items():
             lines += [f"## {rid}, target {target}", "", "| model | " + " | ".join(f"{k:+d} h" for k in OFFSETS) + " |",
@@ -404,7 +459,7 @@ def write_md(res: dict) -> None:
                                                   f"{tgt['by_offset'][str(k)][name]['per_seed_r2']['v'][sd]:.3f}" for sd in ps["u"])
                         for k in (-12, 0, 12)) + " (table row is the seed-mean prediction)")
             lines.append("")
-    (OUT / "hourly_results.md").write_text("\n".join(lines), encoding="utf-8")
+    (OUT / f"hourly_results{TAG}.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 # --------------------------------------------------------------------------
@@ -412,15 +467,19 @@ def write_md(res: dict) -> None:
 # --------------------------------------------------------------------------
 
 LABELS = {"geos_calibrated": "SWOT geostrophy calibrated", "geos_cal+wind_lsq": "+ wind at that hour, linear",
-          "champion_o": "champion + offset only", "champion_ow": "+ wind lags, slab", "champion_ofsw": "+ f, season"}
+          "champion_o": "champion + offset only", "champion_ow": "+ wind lags, slab", "champion_ofsw": "+ f, season",
+          "champion_ow_H10": "+ wind lags, slab H = 10 m", "champion_ow_H50": "+ wind lags, slab H = 50 m",
+          "champion_ow_r1d": "+ wind lags, slab r = 1/(1 d)", "champion_ow_r10d": "+ wind lags, slab r = 1/(10 d)"}
 COLORS = {"geos_calibrated": "0.55", "geos_cal+wind_lsq": "0.75", "champion_o": "#0072B2", "champion_ow": "#CC79A7",
-          "champion_ofsw": "#D55E00"}
+          "champion_ofsw": "#D55E00", "champion_ow_H10": "#009E73", "champion_ow_H50": "#F0E442",
+          "champion_ow_r1d": "#56B4E9", "champion_ow_r10d": "#E69F00"}
 
 
 def fig_offset(res: dict) -> None:
     plt = he._mpl()
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6.5), sharex=True)
-    for i, rid in enumerate(REGIONS):
+    rids = [r for r in res["regions"] if "detided" in res["regions"][r]["targets"]]
+    fig, axes = plt.subplots(2, len(rids), figsize=(5 * len(rids), 6.5), sharex=True, squeeze=False)
+    for i, rid in enumerate(rids):
         tgt = res["regions"][rid]["targets"]["detided"]
         for j, c in enumerate("uv"):
             ax = axes[j, i]
@@ -443,15 +502,18 @@ def fig_offset(res: dict) -> None:
     fig.legend(*axes[0, 0].get_legend_handles_labels(), fontsize=7, frameon=False, ncol=5,
                loc="upper center", bbox_to_anchor=(0.5, 0.955))
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    he._save(fig, "hourly_skill_offset")
+    he._save(fig, f"hourly_skill_offset{TAG}")
 
 
 def fig_tide(res: dict) -> None:
     """Raw against detided at offset 0: how much of the hourly variance the tide holds."""
     plt = he._mpl()
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
-    for i, rid in enumerate(REGIONS):
-        ax = axes[i]; reg = res["regions"][rid]["targets"]
+    rids = [r for r in res["regions"] if "raw" in res["regions"][r]["targets"]]
+    if not rids:
+        log("no raw-target scores; skipping tide figure"); return
+    fig, axes = plt.subplots(1, len(rids), figsize=(4.5 * len(rids), 3.4), squeeze=False)
+    for i, rid in enumerate(rids):
+        ax = axes[0, i]; reg = res["regions"][rid]["targets"]
         names = [n for n in LABELS if all(n in reg[t]["models"] for t in reg)]
         x = np.arange(len(names)); w = 0.2
         for jt, target in enumerate(t for t in ("raw", "detided") if t in reg):
@@ -462,10 +524,10 @@ def fig_tide(res: dict) -> None:
         ax.set_xticks(x); ax.set_xticklabels([LABELS[n] for n in names], rotation=25, ha="right", fontsize=7)
         ax.axhline(0, color="k", lw=0.8); ax.set_title(f"{rid}, offset 0 h", loc="left", fontsize=9)
         ax.set_ylabel("R$^2$")
-    axes[0].legend(fontsize=7, frameon=False)
+    axes[0, 0].legend(fontsize=7, frameon=False)
     fig.suptitle("Hourly target with and without the tidal fit removed", fontsize=10)
     fig.tight_layout()
-    he._save(fig, "hourly_tide_effect")
+    he._save(fig, f"hourly_tide_effect{TAG}")
 
 
 def fig_response() -> None:
@@ -507,11 +569,11 @@ def fig_response() -> None:
                         transform=axes[0, i].transAxes, ha="right", va="top", fontsize=7, bbox=dict(fc="white", ec="none", alpha=0.8))
     fig.suptitle("Wind response of the hourly-target model (detided, offset 0 rows)", fontsize=10)
     fig.tight_layout()
-    he._save(fig, "hourly_wind_response")
+    he._save(fig, f"hourly_wind_response{TAG}")
 
 
 def figures() -> None:
-    res = json.loads((OUT / "hourly_results.json").read_text())
+    res = json.loads((OUT / f"hourly_results{TAG}.json").read_text())
     for f in (fig_offset, fig_tide):
         try:
             f(res)
@@ -533,8 +595,16 @@ def main() -> None:
     ap.add_argument("--figures", action="store_true")
     ap.add_argument("--daily", action="store_true", help="average the hourly predictions per pass and score them as a daily product")
     ap.add_argument("--B", type=int, default=1000)
+    ap.add_argument("--regions", choices=list(REGION_SETS), default="us2",
+                    help="training/scoring regions; us6 = all six US networks, artefacts suffixed _us6")
+    ap.add_argument("--slab-h", type=float, default=25.0, help="slab mixed-layer depth in m (25 is the default run; other values get a _H<depth> suffix)")
+    ap.add_argument("--slab-r", type=float, default=4.0, help="slab damping time in days (4 is the default run; other values get a _r<days>d suffix)")
+    ap.add_argument("--offsets", choices=["nine", "all"], default="nine",
+                    help="nine = -12..+12 h every 3 h (default); all = every hour, 1/16 of the base rows, suffix _all25")
+    ap.add_argument("--budget-scale", type=float, default=1.0, help="multiply the champion's training time budget")
     ap.add_argument("--_build_one", nargs=3, help=argparse.SUPPRESS)
     a = ap.parse_args()
+    configure(a.regions, a.slab_h, a.offsets, a.budget_scale, a.slab_r)
     if a._build_one:
         fs, tg, pt = a._build_one
         build_data(fs, tg, pt == "1"); return
